@@ -170,7 +170,7 @@ dialog h3{font-size:16px;margin-bottom:10px;}
         <button class="expbtn pri" onclick="exportXLSX()">엑셀 저장</button>
       </div>
       <button class="expbtn" onclick="saveAs()">저장목록에 저장</button>
-      <div class="note">아래 3장이 JPG로 저장됩니다 — 가로형 확정 디자인</div>
+      <div class="note">아래 3장이 저장됩니다 — 폰은 저장 시 뜨는 공유창에서 ‘이미지 저장’ → 사진 앱에 들어가요</div>
       <div class="sheetlabel">1. 갑지</div>
       <div class="sheetwrap"><div class="sheet" id="sheetGap"></div></div>
       <div class="sheetlabel">2. 집계표</div>
@@ -465,6 +465,8 @@ function fitSheets(){
 window.addEventListener("resize",()=>{if(curStep===4)fitSheets();});
 
 /* ---------- JPG export ---------- */
+const isMobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+function dlFile(f){const a=document.createElement("a");a.download=f.name;a.href=URL.createObjectURL(f);a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500);}
 async function exportJPG(){
   pullForm();
   if(!state.title){toast("공사명을 입력하세요");return;}
@@ -473,15 +475,25 @@ async function exportJPG(){
   document.querySelectorAll(".sheet").forEach(s=>s.style.transform="scale(1)");
   const names={sheetGap:"1_갑지",sheetSum:"2_집계표",sheetDet:"3_내부내역"};
   try{
+    const files=[];
     for(const id of Object.keys(names)){
       const cv=await html2canvas($(id),{scale:3,backgroundColor:"#ffffff"});
-      const a=document.createElement("a");
-      a.download=`${state.title}_${names[id]}.jpg`;
-      a.href=cv.toDataURL("image/jpeg",0.92);
-      a.click();
-      await new Promise(r=>setTimeout(r,400));
+      const blob=await new Promise(res=>cv.toBlob(res,"image/jpeg",0.92));
+      files.push(new File([blob],`${state.title}_${names[id]}.jpg`,{type:"image/jpeg"}));
     }
-    toast("JPG 3장 저장 완료");
+    /* 폰: 공유 시트로 사진 앱 저장 / PC: 다운로드 */
+    if(isMobile && navigator.canShare && navigator.canShare({files})){
+      try{
+        await navigator.share({files,title:state.title+" 견적서"});
+        toast("공유창에서 ‘이미지 저장’을 누르면 사진에 저장돼요");
+      }catch(err){
+        if(err&&err.name==="AbortError"){toast("저장 취소됨");}
+        else{for(const f of files){dlFile(f);await new Promise(r=>setTimeout(r,400));}toast("사진 저장이 안 돼 다운로드로 저장했어요");}
+      }
+    }else{
+      for(const f of files){dlFile(f);await new Promise(r=>setTimeout(r,400));}
+      toast("JPG 3장 저장 완료");
+    }
   }catch(e){toast("오류: "+e.message);}
   fitSheets();
   $("busy").style.display="none";
