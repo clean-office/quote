@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>모두랩 관리</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --plane:#f6f3ec;--card:#fff;--ink:#241f17;--ink2:#6f6858;--muted:#a49c8b;
+  --line:rgba(36,31,23,.09);--line2:rgba(36,31,23,.055);
+  --gold:#8a6a1c;--goldL:#a9862f;--goldSoft:#f2ebd8;--goldFaint:#faf6ec;--espresso:#211d16;
+  --good:#0f9a2f;--goodBg:#e7f3e8;--warn:#c98a12;--warnBg:#f6eed6;--bad:#cf3d3d;--badBg:#fbe9e7;--blue:#2f6ad0;--blueBg:#e8effb;
+  --sh:0 1px 2px rgba(36,31,23,.05),0 10px 26px -8px rgba(36,31,23,.10);
+  font-family:Pretendard,system-ui,-apple-system,"Malgun Gothic",sans-serif;
+}
+body{background:var(--plane);color:var(--ink);-webkit-font-smoothing:antialiased;}
+svg{display:block;}
+.tnum{font-variant-numeric:tabular-nums;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+input,textarea,select{font-family:inherit;font-size:15px;}
+
+.wrap{display:flex;min-height:100vh;}
+/* rail */
+.rail{width:82px;background:var(--espresso);flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:20px 0;gap:5px;position:sticky;top:0;height:100vh;}
+.rail .logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(150deg,#a9862f,#7c5d17);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:17px;margin-bottom:14px;}
+.ri{width:56px;height:50px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#8b8474;position:relative;}
+.ri span{font-size:9.5px;font-weight:600;}
+.ri.on{color:#f4ecd6;background:rgba(169,134,47,.16);}
+.ri.on::before{content:"";position:absolute;left:-13px;width:3px;height:22px;border-radius:3px;background:var(--goldL);}
+.ri svg{width:21px;height:21px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.rail .sp{flex:1;}
+.rail .av{width:38px;height:38px;border-radius:50%;background:#3a3324;color:#e9d9ad;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;border:1.5px solid rgba(169,134,47,.5);}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column;}
+.top{padding:22px 30px 6px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.htitle{font-size:22px;font-weight:800;letter-spacing:-.02em;}
+.htitle small{display:block;font-size:13px;font-weight:500;color:var(--muted);margin-top:4px;}
+.top .rt{display:flex;align-items:center;gap:9px;}
+.iconbtn{width:42px;height:42px;border-radius:11px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;box-shadow:var(--sh);}
+.iconbtn svg{width:18px;height:18px;stroke:var(--ink2);stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.cta{display:flex;align-items:center;gap:7px;background:var(--gold);color:#fff;border-radius:11px;padding:11px 16px;font-size:13.5px;font-weight:700;box-shadow:0 6px 16px -4px rgba(138,106,28,.5);white-space:nowrap;}
+.cta svg{width:16px;height:16px;stroke:#fff;stroke-width:2.1;fill:none;stroke-linecap:round;}
+.content{padding:18px 30px 40px;}
+
+.banner{background:#fff7e6;border:1px solid #e6d9ad;border-radius:12px;padding:11px 15px;font-size:12.5px;color:#7a5f16;display:flex;align-items:center;gap:9px;margin-bottom:16px;}
+.banner b{font-weight:700;} .banner .bx{margin-left:auto;display:flex;gap:8px;}
+.banner button{background:var(--gold);color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;}
+.banner button.gh{background:#fff;border:1px solid #e0d3a8;color:#7a5f16;}
+
+/* cards / panels */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 22px;box-shadow:var(--sh);}
+.ph{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.ph .t{font-size:15px;font-weight:800;letter-spacing:-.01em;}
+.ph .lnk{font-size:12px;color:var(--gold);font-weight:600;}
+.subttl{font-size:12px;color:var(--muted);margin-top:2px;}
+.grid{display:grid;gap:16px;}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px 16px;box-shadow:var(--sh);}
+.stat .cap{font-size:12px;color:var(--ink2);font-weight:600;display:flex;justify-content:space-between;align-items:center;}
+.stat .chipi{width:28px;height:28px;border-radius:8px;background:var(--goldFaint);display:flex;align-items:center;justify-content:center;}
+.stat .chipi svg{width:15px;height:15px;stroke:var(--gold);stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.stat .val{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-top:10px;}
+.stat .val small{font-size:13px;font-weight:700;color:var(--muted);}
+.stat .foot{font-size:11.5px;color:var(--muted);margin-top:7px;}
+.stat.accent{background:linear-gradient(158deg,#2a2418,#3c3320);border:none;color:#fff;}
+.stat.accent .cap,.stat.accent .foot{color:#d8c99e;}.stat.accent .val{color:#fff;}.stat.accent .val small{color:#c9b986;}
+.stat.accent .chipi{background:rgba(169,134,47,.22);}.stat.accent .chipi svg{stroke:#e6cf95;}
+
+.delta{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;padding:2px 7px;border-radius:7px;}
+.d-up{color:var(--good);background:var(--goodBg);}.d-dn{color:var(--bad);background:var(--badBg);}.d-fl{color:var(--warn);background:var(--warnBg);}
+
+/* chart */
+.chartwrap{margin-top:18px;position:relative;height:180px;}
+.gl{position:absolute;left:46px;right:0;border-top:1px solid var(--line2);}
+.yl{position:absolute;left:0;font-size:10px;color:var(--muted);transform:translateY(-50%);}
+.bars{position:absolute;left:46px;right:0;bottom:22px;top:6px;display:flex;align-items:flex-end;gap:14px;}
+.bcol{flex:1;display:flex;align-items:flex-end;justify-content:center;height:100%;}
+.bk{width:32px;max-width:64%;background:linear-gradient(180deg,#e6dcc2,#dcd0b0);border-radius:5px 5px 0 0;position:relative;min-height:2px;}
+.bk.on{background:linear-gradient(180deg,#a9862f,#8a6a1c);}
+.bk .dl{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10.5px;font-weight:800;color:var(--gold);white-space:nowrap;}
+.xl{position:absolute;bottom:0;left:46px;right:0;display:flex;gap:14px;}
+.xl span{flex:1;text-align:center;font-size:10.5px;color:var(--muted);}
+.xl span.on{color:var(--ink);font-weight:700;}
+
+/* list rows */
+.rowitem{display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid var(--line2);}
+.rowitem:last-child{border:none;}
+.savatar{width:38px;height:38px;border-radius:10px;background:var(--goldFaint);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.savatar svg{width:18px;height:18px;stroke:var(--gold);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.rowitem .info{flex:1;min-width:0;}
+.rowitem .nm{font-size:13.5px;font-weight:700;}
+.rowitem .mt{font-size:11.5px;color:var(--muted);margin-top:3px;}
+.meter{width:100px;flex-shrink:0;}
+.meter .bar{height:6px;border-radius:4px;background:var(--line);overflow:hidden;}
+.meter .bar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#a9862f,#8a6a1c);}
+.meter .pct{font-size:10px;color:var(--muted);margin-top:4px;text-align:right;font-weight:600;}
+.schip{font-size:10.5px;font-weight:800;padding:4px 9px;border-radius:8px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
+.sdot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.sc-run{color:var(--blue);background:var(--blueBg);}.sc-pay{color:var(--bad);background:var(--badBg);}.sc-con{color:var(--good);background:var(--goodBg);}
+.sc-est{color:var(--warn);background:var(--warnBg);}.sc-done{color:#8a7c58;background:#eee9dc;}.sc-lead{color:var(--ink2);background:#efeadf;}
+
+.pay{display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--line2);}
+.pay:last-child{border:none;}
+.pay .pi{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.pay .pn{font-size:13px;font-weight:600;flex:1;}
+.pay .pv{font-size:13px;font-weight:800;text-align:right;}
+.pay .ps{font-size:11px;color:var(--muted);font-weight:600;text-align:right;}
+
+.tl{margin-top:14px;}
+.tlr{display:flex;gap:12px;padding-bottom:15px;position:relative;}
+.tlr:last-child{padding-bottom:0;}
+.tlr::before{content:"";position:absolute;left:5px;top:14px;bottom:-2px;width:1.5px;background:var(--line);}
+.tlr:last-child::before{display:none;}
+.tld{width:11px;height:11px;border-radius:50%;flex-shrink:0;margin-top:2px;border:2.5px solid var(--card);box-shadow:0 0 0 1.5px currentColor;}
+.tlc .tt{font-size:13px;font-weight:600;color:var(--ink);}
+.tlc .tm{font-size:11.5px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:6px;}
+.badge{font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px;}
+.empty{text-align:center;color:var(--muted);font-size:13px;padding:26px 0;}
+
+/* kanban */
+.kb{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.kcol{background:#efe9db;border-radius:14px;padding:12px;min-height:120px;}
+.kh{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;font-weight:800;}
+.kh .sum{font-size:10.5px;color:var(--muted);font-weight:600;}
+.kcnt{background:var(--gold);color:#fff;border-radius:10px;font-size:10.5px;padding:1px 8px;margin-left:6px;}
+.kc{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:9px;padding:11px 12px;margin-bottom:9px;box-shadow:0 1px 2px rgba(36,31,23,.04);}
+.kc .t{font-size:13px;font-weight:700;}
+.kc .a{font-size:12px;font-weight:800;color:var(--gold);margin-top:4px;}
+.kc .m{font-size:10.5px;color:var(--muted);margin-top:6px;display:flex;justify-content:space-between;align-items:center;}
+.kc .mv{display:flex;gap:5px;margin-top:9px;}
+.kc .mv button{flex:1;border:1px solid var(--line);border-radius:7px;padding:5px;font-size:11px;color:var(--ink2);font-weight:600;background:var(--plane);}
+.kaddc{width:100%;border:1.5px dashed var(--goldL);color:var(--gold);border-radius:9px;padding:9px;font-size:12px;font-weight:700;background:none;}
+
+/* table */
+.tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.tbl th{text-align:left;font-size:11px;color:var(--muted);font-weight:700;padding:10px 12px;border-bottom:2px solid var(--line);}
+.tbl td{padding:12px;border-bottom:1px solid var(--line2);}
+.tbl .num{text-align:right;} .tbl .nm{font-weight:700;}
+.tick{display:inline-flex;width:22px;height:22px;border-radius:6px;align-items:center;justify-content:center;font-size:12px;cursor:pointer;border:1.5px solid var(--line);}
+.tick.on{background:var(--good);border-color:var(--good);color:#fff;}
+
+/* dict */
+.dict{display:grid;grid-template-columns:190px 1fr;gap:16px;}
+.cats{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;height:fit-content;box-shadow:var(--sh);}
+.cat{padding:10px 12px;border-radius:9px;font-size:13.5px;margin-bottom:2px;display:flex;justify-content:space-between;cursor:pointer;}
+.cat.on{background:var(--gold);color:#fff;font-weight:700;}.cat .n{font-size:11px;opacity:.7;}
+.ditem{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;display:flex;align-items:center;gap:14px;margin-bottom:9px;box-shadow:var(--sh);}
+.ditem .nm{font-size:14px;font-weight:700;}.ditem .sp{font-size:11.5px;color:var(--muted);margin-top:2px;}
+.ditem .pr{text-align:right;font-size:11.5px;color:var(--muted);white-space:nowrap;}.ditem .pr b{color:var(--ink);}
+.addb{background:var(--goldSoft);color:var(--gold);border-radius:8px;padding:8px 13px;font-size:12px;font-weight:700;white-space:nowrap;}
+
+/* generic */
+.btn{background:var(--gold);color:#fff;border-radius:10px;padding:10px 15px;font-size:13px;font-weight:700;}
+.btn.gh{background:var(--card);border:1px solid var(--line);color:var(--ink);}
+.btn.sm{padding:7px 12px;font-size:12px;border-radius:8px;}
+.rowflex{display:flex;gap:10px;align-items:center;}
+
+/* modal */
+.ov{position:fixed;inset:0;background:rgba(36,31,23,.42);display:none;align-items:flex-end;justify-content:center;z-index:100;}
+.ov.on{display:flex;}
+.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:22px 22px calc(22px + env(safe-area-inset-bottom));animation:up .22s ease;}
+@keyframes up{from{transform:translateY(30px);opacity:.6}to{transform:none;opacity:1}}
+.modal h3{font-size:17px;font-weight:800;margin-bottom:16px;}
+.f{margin-bottom:13px;}
+.f label{display:block;font-size:12px;color:var(--ink2);font-weight:600;margin-bottom:5px;}
+.f input,.f textarea,.f select{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:#fff;color:var(--ink);}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.mact{display:flex;gap:10px;margin-top:18px;}
+.mact .btn{flex:1;text-align:center;padding:13px;}
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--espresso);color:#f3e9cf;padding:11px 20px;border-radius:22px;font-size:13.5px;z-index:200;opacity:0;transition:.25s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.3);}
+.toast.on{opacity:1;}
+
+/* mobile bottom tab */
+.mtab{display:none;}
+@media(max-width:860px){
+  .rail{display:none;}
+  .top{padding:16px 16px 4px;}
+  .htitle{font-size:19px;}
+  .content{padding:14px 16px 90px;}
+  .stats{grid-template-columns:1fr 1fr;}
+  .grid.two{grid-template-columns:1fr!important;}
+  .kb{grid-template-columns:1fr;gap:12px;}
+  .dict{grid-template-columns:1fr;}
+  .cats{display:flex;overflow-x:auto;gap:6px;}
+  .cat{white-space:nowrap;}
+  .desktopHide{display:none;}
+  .mtab{display:flex;position:fixed;left:0;right:0;bottom:0;background:var(--espresso);z-index:90;padding:8px 4px calc(8px + env(safe-area-inset-bottom));justify-content:space-around;}
+  .mtab a{display:flex;flex-direction:column;align-items:center;gap:3px;color:#8b8474;font-size:10px;font-weight:600;text-decoration:none;}
+  .mtab a.on{color:#f4ecd6;}
+  .mtab svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+  .modal{max-width:100%;}
+  .tblwrap{overflow-x:auto;} .tbl{min-width:560px;}
+}
+@media(min-width:861px){ .grid.two{grid-template-columns:2fr 1fr;} }
+</style></head>
+<body>
+<div class="wrap">
+  <nav class="rail" id="rail"></nav>
+  <div class="main">
+    <div class="top">
+      <div class="htitle" id="pageTitle">홈</div>
+      <div class="rt">
+        <div class="iconbtn" onclick="doBackup()" title="백업 내보내기"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></div>
+        <button class="cta" onclick="location.href='./index.html'"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>새 견적</button>
+      </div>
+    </div>
+    <div class="content" id="view"></div>
+  </div>
+</div>
+<nav class="mtab" id="mtab"></nav>
+<div class="ov" id="ov" onclick="if(event.target===this)closeModal()"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- icons ---------- */
+const IC={
+ home:'<path d="M4 13h6v7H4zM14 4h6v16h-6zM4 4h6v5H4z"/>',
+ sales:'<path d="M4 20V10M10 20V4M16 20v-6M22 20H2"/>',
+ site:'<path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-3"/>',
+ quote:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+ settle:'<path d="M20 7H5a2 2 0 0 0 0 9h15v-9zM20 7V5a2 2 0 0 0-2-2H6"/>',
+ cust:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5.2M21 20a5.5 5.5 0 0 0-4-5.3"/>',
+ dict:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM19 3v18"/>',
+ gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>'
+};
+const NAV=[
+ {id:'home',label:'홈',ic:'home'},{id:'sales',label:'영업',ic:'sales'},{id:'sites',label:'현장',ic:'site'},
+ {id:'quotes',label:'견적',ic:'quote'},{id:'settle',label:'정산',ic:'settle'},{id:'customers',label:'고객',ic:'cust'},
+ {id:'dict',label:'단가',ic:'dict'},{id:'settings',label:'설정',ic:'gear'}
+];
+const MTAB=['home','sales','sites','quotes','settle'];
+
+/* ---------- data ---------- */
+const KEY='mdl_hub_v1';
+let DB=null;
+function seed(){return {
+ seeded:true,
+ sites:[
+  {id:uid(),name:'역삼 사무실 리모델링',client:'이정훈 대표',phone:'010-2345-6789',addr:'강남구 역삼동 ○○빌딩 4F',amount:38500000,status:'construction',progress:60,end:'2026-07-28',pay:{d:true,m:false,f:false},cmonth:'2026-07'},
+  {id:uid(),name:'봉천 치킨배달전문점',client:'이성원 실장',phone:'',addr:'관악구 봉천동',amount:1020000,status:'contract',progress:20,end:'',pay:{d:false,m:false,f:false},cmonth:'2026-07'},
+  {id:uid(),name:'역삼 사무실 (1차)',client:'이정훈 대표',phone:'',addr:'',amount:40000000,status:'settle',progress:90,end:'2026-07-10',pay:{d:true,m:true,f:false},cmonth:'2026-06'},
+  {id:uid(),name:'강남 헤어샵',client:'박소연',phone:'',addr:'강남구',amount:56000000,status:'done',progress:100,end:'2026-06-20',pay:{d:true,m:true,f:true},cmonth:'2026-05'}
+ ],
+ sales:[
+  {id:uid(),name:'봉천 치킨배달전문점',amount:9500000,stage:'visit',client:'이성원 대표',due:'오늘 14:00'},
+  {id:uid(),name:'신림 미용실',amount:18000000,stage:'visit',client:'박○○',due:'7/22'},
+  {id:uid(),name:'서초 무인카페',amount:23400000,stage:'sent',client:'',due:'팔로업'},
+  {id:uid(),name:'방배 학원',amount:41000000,stage:'sent',client:'',due:'대기'},
+  {id:uid(),name:'논현 오피스',amount:28000000,stage:'contract',client:'',due:'7/21'}
+ ],
+ customers:[
+  {id:uid(),name:'이정훈 대표',phone:'010-2345-6789',memo:'역삼 사무실 2건'},
+  {id:uid(),name:'이성원 실장',phone:'',memo:'봉천 치킨집'}
+ ],
+ dict:[
+  {id:uid(),cat:'철거',name:'데크 철거',spec:'',unit:'식',mat:100000,lab:130000},
+  {id:uid(),cat:'철거',name:'벽체 철거',spec:'경량벽',unit:'㎡',mat:0,lab:18000},
+  {id:uid(),cat:'철거',name:'폐기물 처리',spec:'1톤',unit:'대',mat:250000,lab:0},
+  {id:uid(),cat:'목공',name:'석고보드 벽',spec:'양면',unit:'㎡',mat:12000,lab:22000},
+  {id:uid(),cat:'전기',name:'매입등 설치',spec:'LED 4인치',unit:'개',mat:8000,lab:6000}
+ ],
+ tasks:[]
+};}
+function load(){try{DB=JSON.parse(localStorage.getItem(KEY));}catch(e){DB=null;}
+ if(!DB||!DB.seeded){DB=seed();save();}
+ ['sites','sales','customers','dict','tasks'].forEach(k=>{if(!Array.isArray(DB[k]))DB[k]=[];});}
+function save(){localStorage.setItem(KEY,JSON.stringify(DB));localStorage.setItem(KEY+'_bak',JSON.stringify({t:Date.now(),data:DB}));}
+
+/* ---------- helpers ---------- */
+function uid(){return 'x'+Math.random().toString(36).slice(2,9);}
+const $=id=>document.getElementById(id);
+const won=n=>(n||0).toLocaleString('ko-KR');
+const man=n=>{n=n||0; if(n>=100000000)return (n/100000000).toFixed(n%100000000?1:0)+'억'; return Math.round(n/10000).toLocaleString('ko-KR')+'만';};
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const STAT={lead:['접수','sc-lead'],estimate:['견적','sc-est'],contract:['계약','sc-con'],construction:['시공중','sc-run'],done:['준공','sc-done'],settle:['정산대기','sc-pay']};
+const ACTIVE=['contract','construction','settle'];
+function payParts(s){const a=s.amount||0;return {d:{amt:Math.round(a*0.3),paid:s.pay?.d},m:{amt:Math.round(a*0.4),paid:s.pay?.m},f:{amt:a-Math.round(a*0.3)-Math.round(a*0.4),paid:s.pay?.f}};}
+function unpaid(s){const p=payParts(s);let u=0;['d','m','f'].forEach(k=>{if(!p[k].paid)u+=p[k].amt;});
+ // only count receivable once contracted
+ if(!ACTIVE.includes(s.status)&&s.status!=='done')return s.status==='contract'?u:0; return u;}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2200);}
+
+/* ---------- router ---------- */
+function route(){return (location.hash.replace('#','')||'home');}
+function go(r){location.hash=r;}
+function render(){
+ const r=route();
+ const nav=NAV.find(n=>n.id===r)||NAV[0];
+ $('pageTitle').textContent={home:'홈',sales:'영업 보드',sites:'진행 현장',quotes:'견적서',settle:'정산·수금',customers:'고객·거래처',dict:'단가·품목 사전',settings:'설정'}[r]||'홈';
+ $('rail').innerHTML='<div class="logo">m</div>'+NAV.map(n=>`<a class="ri ${n.id===r?'on':''}" href="#${n.id}"><svg viewBox="0 0 24 24">${IC[n.ic]}</svg><span>${n.label}</span></a>`).join('')+'<div class="sp"></div><div class="av">성</div>';
+ $('mtab').innerHTML=MTAB.map(id=>{const n=NAV.find(x=>x.id===id);return `<a class="${id===r?'on':''}" href="#${id}"><svg viewBox="0 0 24 24">${IC[n.ic]}</svg>${n.label}</a>`;}).join('');
+ const v={home:viewHome,sales:viewSales,sites:viewSites,quotes:viewQuotes,settle:viewSettle,customers:viewCustomers,dict:viewDict,settings:viewSettings}[r]||viewHome;
+ $('view').innerHTML=v();
+ window.scrollTo(0,0);
+}
+window.addEventListener('hashchange',render);
+
+/* ---------- HOME ---------- */
+function cloudBanner(){
+ return `<div class="banner">⚠️ <b>임시 저장 중</b> — 지금은 이 브라우저에만 저장돼요(지워질 수 있음). <span class="bx"><button onclick="doBackup()">백업 내보내기</button><button class="gh" onclick="go('settings')">클라우드 연결</button></span></div>`;
+}
+function viewHome(){
+ const c=calc();
+ const chart=monthChart();
+ const active=DB.sites.filter(s=>ACTIVE.includes(s.status));
+ const recvSites=DB.sites.map(s=>({s,u:unpaid(s)})).filter(x=>x.u>0).sort((a,b)=>b.u-a.u).slice(0,3);
+ return cloudBanner()+`
+ <div class="stats">
+  <div class="stat"><div class="cap">이번달 견적<span class="chipi"><svg viewBox="0 0 24 24">${IC.quote}</svg></span></div><div class="val tnum">${c.quoteCnt}<small>건</small></div><div class="foot">영업 진행 ${DB.sales.length}건</div></div>
+  <div class="stat"><div class="cap">계약 수주액<span class="chipi"><svg viewBox="0 0 24 24">${IC.settle}</svg></span></div><div class="val tnum">${man(c.contracted)}<small>원</small></div><div class="foot">계약 ${c.contractCnt}건</div></div>
+  <div class="stat accent"><div class="cap">받을 돈 · 미수금<span class="chipi"><svg viewBox="0 0 24 24">${IC.settle}</svg></span></div><div class="val tnum">${man(c.receivable)}<small>원</small></div><div class="foot">${c.overdue?('지연 '+c.overdue+'건'):'정상'}</div></div>
+  <div class="stat"><div class="cap">진행 현장<span class="chipi"><svg viewBox="0 0 24 24">${IC.site}</svg></span></div><div class="val tnum">${active.length}<small>곳</small></div><div class="foot">시공중 ${c.constructing} · 정산대기 ${c.settling}</div></div>
+ </div>
+ <div class="grid two">
+  <div class="grid" style="gap:16px">
+   <div class="panel">
+    <div class="ph"><div><div class="t">월별 수주액</div><div class="subttl">최근 6개월 · 단위 만원</div></div></div>
+    <div class="chartwrap">
+     <div class="gl" style="top:6px"></div><div class="yl" style="top:6px">${man(chart.max)}</div>
+     <div class="gl" style="top:126px"></div><div class="yl" style="top:126px">0</div>
+     <div class="bars">${chart.bars.map(b=>`<div class="bcol"><div class="bk ${b.on?'on':''}" style="height:${b.h}%">${b.on&&b.v?`<span class="dl">${man(b.v)}</span>`:''}</div></div>`).join('')}</div>
+     <div class="xl">${chart.bars.map(b=>`<span class="${b.on?'on':''}">${b.label}</span>`).join('')}</div>
+    </div>
+   </div>
+   <div class="panel">
+    <div class="ph"><div class="t">진행 현장</div><a class="lnk" href="#sites">전체 →</a></div>
+    ${active.length?active.slice(0,4).map(siteRow).join(''):'<div class="empty">진행 중인 현장이 없어요</div>'}
+   </div>
+  </div>
+  <div class="grid" style="gap:16px">
+   <div class="panel">
+    <div class="ph"><div class="t">오늘 할 일</div><button class="lnk" onclick="addTask()">＋</button></div>
+    ${todayList()}
+   </div>
+   <div class="panel">
+    <div class="ph"><div class="t">수금 필요</div><a class="lnk" href="#settle">정산 →</a></div>
+    <div style="margin-top:12px">${recvSites.length?recvSites.map(x=>{const od=x.s.status==='settle';return `<div class="pay"><span class="pi" style="background:${od?'var(--bad)':'var(--warn)'}"></span><span class="pn">${esc(x.s.name)}</span><div><div class="pv tnum">${man(x.u)}</div><div class="ps" style="${od?'color:var(--bad)':''}">${od?'미수':'진행중'}</div></div></div>`;}).join(''):'<div class="empty">수금할 항목 없음</div>'}</div>
+   </div>
+  </div>
+ </div>`;
+}
+function siteRow(s){const st=STAT[s.status]||STAT.lead;return `<div class="rowitem" onclick="openSite('${s.id}')" style="cursor:pointer">
+ <div class="savatar"><svg viewBox="0 0 24 24">${IC.site}</svg></div>
+ <div class="info"><div class="nm">${esc(s.name)}</div><div class="mt">${esc(s.client||'')} · ${man(s.amount)}원</div></div>
+ <div class="meter desktopHide"><div class="bar"><i style="width:${s.progress||0}%"></i></div><div class="pct tnum">${s.progress||0}%</div></div>
+ <span class="schip ${st[1]}"><span class="sdot"></span>${st[0]}</span></div>`;}
+function todayList(){
+ const items=[...DB.tasks];
+ DB.sales.filter(s=>s.due&&/오늘/.test(s.due)).forEach(s=>items.push({text:s.name+' 견적/방문',when:s.due,color:'var(--warn)'}));
+ if(!items.length)return '<div class="empty">오늘 등록된 일정이 없어요</div>';
+ return '<div class="tl">'+items.map(t=>`<div class="tlr" style="color:${t.color||'var(--blue)'}"><span class="tld"></span><div class="tlc"><div class="tt">${esc(t.text)}</div><div class="tm"><span class="badge" style="color:inherit;background:var(--goldFaint)">${esc(t.when||'오늘')}</span></div></div></div>`).join('')+'</div>';
+}
+function calc(){
+ let contracted=0,contractCnt=0,receivable=0,overdue=0,constructing=0,settling=0;
+ DB.sites.forEach(s=>{
+  if(ACTIVE.includes(s.status)||s.status==='done'){contracted+=s.amount||0;}
+  if(ACTIVE.includes(s.status))contractCnt++;
+  const u=unpaid(s);receivable+=u;
+  if(s.status==='settle'&&u>0)overdue++;
+  if(s.status==='construction')constructing++;
+  if(s.status==='settle')settling++;
+ });
+ const quoteCnt=DB.sales.filter(s=>s.stage==='sent'||s.stage==='contract').length;
+ return {contracted,contractCnt,receivable,overdue,constructing,settling,quoteCnt};
+}
+function monthChart(){
+ const now=new Date('2026-07-19');
+ const months=[];for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push({key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,label:(d.getMonth()+1)+'월'});}
+ const sums={};DB.sites.forEach(s=>{if((ACTIVE.includes(s.status)||s.status==='done')&&s.cmonth)sums[s.cmonth]=(sums[s.cmonth]||0)+(s.amount||0);});
+ const max=Math.max(1,...months.map(m=>sums[m.key]||0));
+ const bars=months.map((m,i)=>({label:m.label,v:sums[m.key]||0,h:Math.round((sums[m.key]||0)/max*100),on:i===months.length-1}));
+ return {bars,max};
+}
+
+/* ---------- SALES (kanban) ---------- */
+const STAGES=[['lead','문의'],['visit','방문·실측'],['sent','견적 발송'],['contract','계약']];
+function viewSales(){
+ return `<div class="rowflex" style="justify-content:space-between;margin-bottom:14px"><div class="subttl">진행 ${DB.sales.length}건 · 예상 ${man(DB.sales.reduce((a,s)=>a+(s.amount||0),0))}원</div><button class="btn sm" onclick="addSale()">＋ 영업 등록</button></div>
+ <div class="kb">${STAGES.map(([k,label])=>{
+  const cards=DB.sales.filter(s=>s.stage===k);
+  return `<div class="kcol"><div class="kh"><span>${label}<span class="kcnt">${cards.length}</span></span><span class="sum">${man(cards.reduce((a,s)=>a+(s.amount||0),0))}</span></div>
+   ${cards.map(saleCard).join('')}
+   <button class="kaddc" onclick="addSale('${k}')">＋ 추가</button></div>`;
+ }).join('')}</div>`;
+}
+function saleCard(s){const idx=STAGES.findIndex(x=>x[0]===s.stage);
+ return `<div class="kc"><div class="t">${esc(s.name)}</div><div class="a">${man(s.amount)}원</div>
+  <div class="m"><span>${esc(s.client||s.due||'')}</span><span>${esc(s.due||'')}</span></div>
+  <div class="mv">
+   <button ${idx<=0?'disabled style=opacity:.35':''} onclick="moveSale('${s.id}',-1)">←</button>
+   <button onclick="editSale('${s.id}')">수정</button>
+   <button ${idx>=STAGES.length-1?'disabled style=opacity:.35':''} onclick="moveSale('${s.id}',1)">→</button>
+  </div></div>`;}
+function moveSale(id,d){const s=DB.sales.find(x=>x.id===id);if(!s)return;const i=STAGES.findIndex(x=>x[0]===s.stage)+d;if(i<0||i>=STAGES.length)return;s.stage=STAGES[i][0];
+ if(s.stage==='contract'&&!s._sited){if(confirm(s.name+' — 계약됨! 진행 현장으로 등록할까요?')){DB.sites.unshift({id:uid(),name:s.name,client:s.client||'',phone:'',addr:'',amount:s.amount||0,status:'contract',progress:5,end:'',pay:{d:false,m:false,f:false},cmonth:'2026-07'});s._sited=true;toast('현장으로 등록됨');}}
+ save();render();}
+
+/* ---------- SITES ---------- */
+function viewSites(){
+ const order={construction:0,settle:1,contract:2,estimate:3,lead:4,done:5};
+ const sites=[...DB.sites].sort((a,b)=>(order[a.status]??9)-(order[b.status]??9));
+ return `<div class="rowflex" style="justify-content:space-between;margin-bottom:14px"><div class="subttl">전체 ${DB.sites.length}곳</div><button class="btn sm" onclick="addSite()">＋ 현장 등록</button></div>
+ <div class="panel">${sites.length?sites.map(siteRow).join(''):'<div class="empty">등록된 현장이 없어요</div>'}</div>`;
+}
+function openSite(id){const s=DB.sites.find(x=>x.id===id);if(!s)return;const p=payParts(s);
+ const states=Object.entries(STAT);
+ openModal(`<h3>${esc(s.name)}</h3>
+  <div class="f"><label>상태</label><select id="m_status">${states.map(([k,v])=>`<option value="${k}" ${s.status===k?'selected':''}>${v[0]}</option>`).join('')}</select></div>
+  <div class="f2"><div class="f"><label>고객</label><input id="m_client" value="${esc(s.client||'')}"></div><div class="f"><label>계약금액(원)</label><input id="m_amount" inputmode="numeric" value="${s.amount||0}"></div></div>
+  <div class="f2"><div class="f"><label>진행률(%)</label><input id="m_prog" inputmode="numeric" value="${s.progress||0}"></div><div class="f"><label>준공예정</label><input id="m_end" type="date" value="${s.end||''}"></div></div>
+  <div class="f"><label>수금 (계약금30 / 중도40 / 잔금30)</label>
+   <div class="rowflex" style="gap:8px;margin-top:4px">
+    <div class="tick ${p.d.paid?'on':''}" onclick="this.classList.toggle('on')" data-k="d">계약</div><span class="ps" style="font-size:11px;color:var(--muted)">${man(p.d.amt)}</span>
+    <div class="tick ${p.m.paid?'on':''}" onclick="this.classList.toggle('on')" data-k="m">중도</div><span class="ps" style="font-size:11px;color:var(--muted)">${man(p.m.amt)}</span>
+    <div class="tick ${p.f.paid?'on':''}" onclick="this.classList.toggle('on')" data-k="f">잔금</div><span class="ps" style="font-size:11px;color:var(--muted)">${man(p.f.amt)}</span>
+   </div></div>
+  <div class="mact"><button class="btn gh" onclick="delSite('${s.id}')">삭제</button><button class="btn" onclick="saveSite('${s.id}')">저장</button></div>`);
+}
+function saveSite(id){const s=DB.sites.find(x=>x.id===id);if(!s)return;
+ s.status=$('m_status').value;s.client=$('m_client').value;s.amount=parseInt($('m_amount').value.replace(/\D/g,''))||0;
+ s.progress=Math.min(100,parseInt($('m_prog').value)||0);s.end=$('m_end').value;
+ document.querySelectorAll('#modal .tick').forEach(t=>{s.pay[t.dataset.k]=t.classList.contains('on');});
+ save();closeModal();render();toast('저장됨');}
+function delSite(id){if(!confirm('현장을 삭제할까요?'))return;DB.sites=DB.sites.filter(x=>x.id!==id);save();closeModal();render();}
+function addSite(){openModal(`<h3>현장 등록</h3>
+ <div class="f"><label>현장명</label><input id="n_name" placeholder="예: 역삼 사무실 리모델링"></div>
+ <div class="f2"><div class="f"><label>고객</label><input id="n_client"></div><div class="f"><label>계약금액(원)</label><input id="n_amount" inputmode="numeric" placeholder="0"></div></div>
+ <div class="f"><label>상태</label><select id="n_status"><option value="contract">계약</option><option value="construction">시공중</option><option value="estimate">견적</option><option value="lead">접수</option></select></div>
+ <div class="mact"><button class="btn gh" onclick="closeModal()">취소</button><button class="btn" onclick="createSite()">등록</button></div>`);}
+function createSite(){const name=$('n_name').value.trim();if(!name){toast('현장명을 입력하세요');return;}
+ DB.sites.unshift({id:uid(),name,client:$('n_client').value,amount:parseInt($('n_amount').value.replace(/\D/g,''))||0,status:$('n_status').value,progress:5,end:'',pay:{d:false,m:false,f:false},cmonth:'2026-07'});
+ save();closeModal();render();toast('현장 등록됨');}
+
+/* ---------- SETTLE ---------- */
+function viewSettle(){
+ const rows=DB.sites.filter(s=>ACTIVE.includes(s.status)||s.status==='done');
+ let recv=0,thisMonth=0,late=0;rows.forEach(s=>{const u=unpaid(s);recv+=u;if(s.status==='settle'&&u>0)late++;});
+ return `<div class="stats" style="grid-template-columns:repeat(3,1fr)">
+   <div class="stat"><div class="cap">이번달 수금 예정</div><div class="val tnum">${man(DB.sites.filter(s=>s.status==='construction').reduce((a,s)=>a+payParts(s).m.amt*(!s.pay.m?1:0),0))}<small>원</small></div></div>
+   <div class="stat accent"><div class="cap">미수금 총액</div><div class="val tnum">${man(recv)}<small>원</small></div></div>
+   <div class="stat"><div class="cap">지연</div><div class="val tnum" style="color:var(--bad)">${late}<small>건</small></div></div>
+  </div>
+  <div class="panel" style="padding:6px 6px 2px"><div class="tblwrap"><table class="tbl">
+   <tr><th>현장</th><th>계약금액</th><th>계약금</th><th>중도금</th><th>잔금</th><th class="num">미수금</th><th>상태</th></tr>
+   ${rows.map(s=>{const p=payParts(s);const st=STAT[s.status];const u=unpaid(s);
+    const cell=(k)=>p[k].paid?'<span class="tick on" style="width:20px;height:20px">✓</span>':`<span class="ps" style="color:var(--muted);font-size:11px">${man(p[k].amt)}</span>`;
+    return `<tr><td class="nm">${esc(s.name)}</td><td class="tnum">${man(s.amount)}</td><td>${cell('d')}</td><td>${cell('m')}</td><td>${cell('f')}</td><td class="num tnum" style="${u>0?'color:var(--bad);font-weight:800':''}">${u>0?man(u):'0'}</td><td><span class="schip ${st[1]}"><span class="sdot"></span>${st[0]}</span></td></tr>`;}).join('')}
+  </table></div></div>`;
+}
+
+/* ---------- CUSTOMERS ---------- */
+function viewCustomers(){
+ return `<div class="rowflex" style="justify-content:space-between;margin-bottom:14px"><div class="subttl">${DB.customers.length}명</div><button class="btn sm" onclick="addCust()">＋ 고객 등록</button></div>
+ <div class="panel">${DB.customers.length?DB.customers.map(c=>`<div class="rowitem"><div class="savatar"><svg viewBox="0 0 24 24">${IC.cust}</svg></div><div class="info"><div class="nm">${esc(c.name)}</div><div class="mt">${esc(c.phone||'연락처 없음')} · ${esc(c.memo||'')}</div></div>${c.phone?`<a class="btn gh sm" href="tel:${esc(c.phone)}">전화</a>`:''}</div>`).join(''):'<div class="empty">등록된 고객이 없어요</div>'}</div>`;
+}
+function addCust(){openModal(`<h3>고객 등록</h3>
+ <div class="f"><label>이름</label><input id="c_name"></div>
+ <div class="f"><label>연락처</label><input id="c_phone" inputmode="tel" placeholder="010-"></div>
+ <div class="f"><label>메모</label><input id="c_memo" placeholder="현장·특이사항"></div>
+ <div class="mact"><button class="btn gh" onclick="closeModal()">취소</button><button class="btn" onclick="createCust()">등록</button></div>`);}
+function createCust(){const n=$('c_name').value.trim();if(!n){toast('이름을 입력하세요');return;}DB.customers.unshift({id:uid(),name:n,phone:$('c_phone').value,memo:$('c_memo').value});save();closeModal();render();toast('고객 등록됨');}
+
+/* ---------- DICT ---------- */
+let dictCat=null;
+function viewDict(){
+ const cats=[...new Set(DB.dict.map(d=>d.cat))];if(!dictCat||!cats.includes(dictCat))dictCat=cats[0];
+ const items=DB.dict.filter(d=>d.cat===dictCat);
+ return `<div class="rowflex" style="justify-content:space-between;margin-bottom:14px"><div class="subttl">자주 쓰는 품목 ${DB.dict.length}개</div><button class="btn sm" onclick="addDict()">＋ 품목 등록</button></div>
+ <div class="dict"><div class="cats">${cats.map(c=>`<div class="cat ${c===dictCat?'on':''}" onclick="dictCat='${c}';render()">${esc(c)}<span class="n">${DB.dict.filter(d=>d.cat===c).length}</span></div>`).join('')}</div>
+ <div>${items.map(d=>`<div class="ditem"><div style="flex:1"><div class="nm">${esc(d.name)}</div><div class="sp">${esc(d.spec||'규격 없음')} · 단위 ${esc(d.unit||'식')}</div></div><div class="pr">재료 <b>${won(d.mat)}</b> · 노무 <b>${won(d.lab)}</b></div><button class="addb" onclick="pickDict('${d.id}')">＋ 견적에</button></div>`).join('')||'<div class="empty">품목이 없어요</div>'}</div></div>`;
+}
+function addDict(){const cats=[...new Set(DB.dict.map(d=>d.cat))];
+ openModal(`<h3>품목 등록</h3>
+ <div class="f2"><div class="f"><label>공종</label><input id="d_cat" value="${esc(dictCat||'')}" list="cl"><datalist id="cl">${cats.map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div><div class="f"><label>품명</label><input id="d_name"></div></div>
+ <div class="f2"><div class="f"><label>규격</label><input id="d_spec"></div><div class="f"><label>단위</label><input id="d_unit" placeholder="식"></div></div>
+ <div class="f2"><div class="f"><label>재료단가</label><input id="d_mat" inputmode="numeric" placeholder="0"></div><div class="f"><label>노무단가</label><input id="d_lab" inputmode="numeric" placeholder="0"></div></div>
+ <div class="mact"><button class="btn gh" onclick="closeModal()">취소</button><button class="btn" onclick="createDict()">등록</button></div>`);}
+function createDict(){const n=$('d_name').value.trim(),c=$('d_cat').value.trim();if(!n||!c){toast('공종·품명을 입력하세요');return;}
+ DB.dict.push({id:uid(),cat:c,name:n,spec:$('d_spec').value,unit:$('d_unit').value||'식',mat:parseInt($('d_mat').value.replace(/\D/g,''))||0,lab:parseInt($('d_lab').value.replace(/\D/g,''))||0});dictCat=c;save();closeModal();render();toast('품목 등록됨');}
+function pickDict(id){const d=DB.dict.find(x=>x.id===id);if(!d)return;
+ const pick=JSON.parse(localStorage.getItem('mdl_dict_pick')||'[]');pick.push(d);localStorage.setItem('mdl_dict_pick',JSON.stringify(pick));
+ toast('견적 담기함 ('+pick.length+') — 견적서에서 불러올 수 있어요');}
+
+/* ---------- QUOTES ---------- */
+function viewQuotes(){
+ let saves={};try{saves=JSON.parse(localStorage.getItem('mdl_saves')||'{}');}catch(e){}
+ const keys=Object.keys(saves).sort((a,b)=>saves[b].t-saves[a].t);
+ let draft=null;try{draft=JSON.parse(localStorage.getItem('mdl_draft')||'null');}catch(e){}
+ return `<div class="panel" style="margin-bottom:16px;display:flex;align-items:center;gap:16px">
+   <div class="savatar" style="width:46px;height:46px"><svg viewBox="0 0 24 24">${IC.quote}</svg></div>
+   <div style="flex:1"><div class="ph" style="margin:0"><div class="t">견적서 추출기</div></div><div class="subttl">스텝형 입력 · 갑지/집계표/내역서 3장 · JPG·엑셀 추출</div></div>
+   <button class="btn" onclick="location.href='./index.html'">견적서 만들기</button>
+  </div>
+  ${draft&&draft.title?`<div class="panel" style="margin-bottom:16px"><div class="ph"><div class="t">작성 중인 견적</div><a class="lnk" href="./index.html">이어서 →</a></div><div class="rowitem" style="border:none"><div class="info"><div class="nm">${esc(draft.title)}</div><div class="mt">${esc(draft.client||'')}</div></div></div></div>`:''}
+  <div class="panel"><div class="ph"><div class="t">저장한 견적</div><div class="subttl">${keys.length}건</div></div>
+   ${keys.length?keys.map(k=>`<div class="rowitem"><div class="savatar"><svg viewBox="0 0 24 24">${IC.quote}</svg></div><div class="info"><div class="nm">${esc(k)}</div><div class="mt">${new Date(saves[k].t).toLocaleDateString('ko-KR')}</div></div><button class="btn gh sm" onclick="location.href='./index.html'">열기</button></div>`).join(''):'<div class="empty">저장된 견적이 없어요 — 견적서를 만들어 저장해보세요</div>'}
+  </div>`;
+}
+
+/* ---------- SETTINGS ---------- */
+function viewSettings(){
+ return `<div class="panel" style="margin-bottom:16px"><div class="ph"><div class="t">데이터 저장</div></div>
+   <p class="subttl" style="line-height:1.6;margin:6px 0 14px">지금은 <b>이 브라우저에만</b> 저장돼요(임시). 아래 클라우드(Supabase)를 연결하면 폰·PC 어디서나 남고 절대 안 날아갑니다.</p>
+   <div class="rowflex" style="gap:10px;flex-wrap:wrap"><button class="btn gh" onclick="doBackup()">백업 파일 내보내기</button><label class="btn gh" style="cursor:pointer">백업 불러오기<input type="file" accept="application/json" style="display:none" onchange="doRestore(this)"></label></div>
+  </div>
+  <div class="panel"><div class="ph"><div class="t">☁️ 클라우드 연결 (Supabase)</div></div>
+   <p class="subttl" style="line-height:1.6;margin:6px 0 14px">Supabase 프로젝트 URL과 anon 키를 넣으면 영구 저장으로 전환돼요. (anon 키는 앱에 넣어도 되는 공개용 키입니다.)</p>
+   <div class="f"><label>Project URL</label><input id="sb_url" placeholder="https://xxxx.supabase.co"></div>
+   <div class="f"><label>anon public key</label><input id="sb_key" placeholder="eyJ..."></div>
+   <button class="btn" onclick="toast('클라우드 연결은 다음 업데이트에서 활성화됩니다 — 값은 저장해뒀어요')" >연결</button>
+  </div>`;
+}
+function doBackup(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='모두랩_백업_'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('백업 파일 저장됨');}
+function doRestore(inp){const f=inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!d.sites)throw 0;DB=d;save();render();toast('백업 불러오기 완료');}catch(e){toast('올바른 백업 파일이 아니에요');}};rd.readAsText(f);}
+
+/* ---------- generic sales/task modals ---------- */
+function addSale(stage){openModal(`<h3>영업 등록</h3>
+ <div class="f"><label>현장/건 이름</label><input id="s_name"></div>
+ <div class="f2"><div class="f"><label>예상 금액(원)</label><input id="s_amount" inputmode="numeric" placeholder="0"></div><div class="f"><label>단계</label><select id="s_stage">${STAGES.map(([k,v])=>`<option value="${k}" ${stage===k?'selected':''}>${v}</option>`).join('')}</select></div></div>
+ <div class="f2"><div class="f"><label>고객</label><input id="s_client"></div><div class="f"><label>다음 일정/메모</label><input id="s_due" placeholder="예: 7/22 실측"></div></div>
+ <div class="mact"><button class="btn gh" onclick="closeModal()">취소</button><button class="btn" onclick="createSale()">등록</button></div>`);}
+function createSale(){const n=$('s_name').value.trim();if(!n){toast('이름을 입력하세요');return;}DB.sales.unshift({id:uid(),name:n,amount:parseInt($('s_amount').value.replace(/\D/g,''))||0,stage:$('s_stage').value,client:$('s_client').value,due:$('s_due').value});save();closeModal();render();toast('영업 등록됨');}
+function editSale(id){const s=DB.sales.find(x=>x.id===id);if(!s)return;openModal(`<h3>영업 수정</h3>
+ <div class="f"><label>이름</label><input id="s_name" value="${esc(s.name)}"></div>
+ <div class="f2"><div class="f"><label>예상 금액(원)</label><input id="s_amount" inputmode="numeric" value="${s.amount||0}"></div><div class="f"><label>다음 일정/메모</label><input id="s_due" value="${esc(s.due||'')}"></div></div>
+ <div class="mact"><button class="btn gh" onclick="delSale('${s.id}')">삭제</button><button class="btn" onclick="updateSale('${s.id}')">저장</button></div>`);}
+function updateSale(id){const s=DB.sales.find(x=>x.id===id);if(!s)return;s.name=$('s_name').value;s.amount=parseInt($('s_amount').value.replace(/\D/g,''))||0;s.due=$('s_due').value;save();closeModal();render();toast('저장됨');}
+function delSale(id){DB.sales=DB.sales.filter(x=>x.id!==id);save();closeModal();render();}
+function addTask(){openModal(`<h3>오늘 할 일</h3><div class="f"><label>내용</label><input id="t_text" placeholder="예: 봉천 실측 방문"></div><div class="f"><label>시간/메모</label><input id="t_when" placeholder="14:00"></div><div class="mact"><button class="btn gh" onclick="closeModal()">취소</button><button class="btn" onclick="createTask()">추가</button></div>`);}
+function createTask(){const t=$('t_text').value.trim();if(!t){toast('내용을 입력하세요');return;}DB.tasks.push({id:uid(),text:t,when:$('t_when').value});save();closeModal();render();}
+
+/* ---------- modal ---------- */
+function openModal(html){$('modal').innerHTML=html;$('ov').classList.add('on');}
+function closeModal(){$('ov').classList.remove('on');}
+
+/* ---------- init ---------- */
+load();render();
+</script>
+</body></html>
