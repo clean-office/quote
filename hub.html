@@ -267,7 +267,51 @@ function seed(){return {
 function load(){try{DB=JSON.parse(localStorage.getItem(KEY));}catch(e){DB=null;}
  if(!DB||!DB.seeded){DB=seed();save();}
  ['sites','sales','customers','dict','tasks'].forEach(k=>{if(!Array.isArray(DB[k]))DB[k]=[];});}
-function save(){localStorage.setItem(KEY,JSON.stringify(DB));localStorage.setItem(KEY+'_bak',JSON.stringify({t:Date.now(),data:DB}));}
+function save(){DB._ts=Date.now();localStorage.setItem(KEY,JSON.stringify(DB));localStorage.setItem(KEY+'_bak',JSON.stringify({t:DB._ts,data:DB}));cloudPush();}
+
+/* ---------- cloud sync (Supabase, single-row JSON) ---------- */
+const CLOUD_KEY='mdl_cloud';
+let cloud=null, cloudStatus='off', cloudTimer=null;
+function loadCloud(){try{cloud=JSON.parse(localStorage.getItem(CLOUD_KEY));}catch(e){cloud=null;} if(cloud&&cloud.url&&cloud.key)cloudStatus='ok'; else {cloud=null;cloudStatus='off';}}
+function sbHeaders(){return {apikey:cloud.key,Authorization:'Bearer '+cloud.key,'Content-Type':'application/json'};}
+async function cloudFetch(){
+ const r=await fetch(`${cloud.url}/rest/v1/moredo_state?id=eq.main&select=data,updated_at`,{headers:sbHeaders()});
+ if(r.status===404||r.status===400)throw new Error('table');
+ if(!r.ok)throw new Error('HTTP '+r.status);
+ const rows=await r.json();return rows[0]||null;
+}
+async function cloudUpsert(){
+ const body=[{id:'main',data:DB,updated_at:new Date(DB._ts||Date.now()).toISOString()}];
+ const r=await fetch(`${cloud.url}/rest/v1/moredo_state`,{method:'POST',headers:{...sbHeaders(),Prefer:'resolution=merge-duplicates'},body:JSON.stringify(body)});
+ if(!r.ok)throw new Error('HTTP '+r.status);
+}
+function cloudPush(){
+ if(!cloud)return;clearTimeout(cloudTimer);
+ cloudTimer=setTimeout(async()=>{try{cloudStatus='sync';paintCloud();await cloudUpsert();cloudStatus='ok';}catch(e){cloudStatus='error';}paintCloud();},600);
+}
+async function cloudPullMerge(){
+ if(!cloud)return;
+ try{const row=await cloudFetch();
+  if(row&&row.data){const remote=row.data;const rt=remote._ts||0,lt=DB._ts||0;
+   if(rt>lt){DB=remote;['sites','sales','customers','dict','tasks'].forEach(k=>{if(!Array.isArray(DB[k]))DB[k]=[];});localStorage.setItem(KEY,JSON.stringify(DB));}
+   else if(lt>rt){await cloudUpsert();}
+  } else {await cloudUpsert();}
+  cloudStatus='ok';
+ }catch(e){cloudStatus=e.message==='table'?'notable':'error';}
+ paintCloud();
+}
+function paintCloud(){const b=document.getElementById('cloudDot');if(b)b.textContent={off:'',ok:'☁️ 저장됨',sync:'☁️ 저장 중…',error:'⚠️ 동기화 오류',notable:'⚠️ 테이블 없음'}[cloudStatus]||'';const bn=document.querySelector('.banner');if(bn&&route()==='home')render();}
+async function cloudConnect(){
+ const url=($('sb_url').value||'').trim().replace(/\/$/,'');const key=($('sb_key').value||'').trim();
+ if(!/^https:\/\/.+\.supabase\.co$/.test(url)){toast('URL 형식을 확인하세요 (https://xxxx.supabase.co)');return;}
+ if(key.length<30){toast('anon key를 확인하세요');return;}
+ cloud={url,key};toast('연결 확인 중…');
+ try{await cloudFetch();localStorage.setItem(CLOUD_KEY,JSON.stringify(cloud));cloudStatus='ok';await cloudPullMerge();toast('클라우드 연결 완료 — 이제 영구 저장돼요');render();}
+ catch(e){if(e.message==='table'){localStorage.setItem(CLOUD_KEY,JSON.stringify(cloud));toast('연결됨 — 아직 테이블이 없어요. 설정의 SQL을 실행해주세요');cloudStatus='notable';render();}
+  else{cloud=null;cloudStatus='off';toast('연결 실패 — URL·키를 확인하세요');}}
+}
+function cloudDisconnect(){localStorage.removeItem(CLOUD_KEY);cloud=null;cloudStatus='off';toast('클라우드 연결 해제');render();}
+function copySQL(){const sql="create table if not exists moredo_state (id text primary key, data jsonb, updated_at timestamptz default now());\nalter table moredo_state enable row level security;\ncreate policy \"anon all\" on moredo_state for all using (true) with check (true);";navigator.clipboard&&navigator.clipboard.writeText(sql);toast('SQL 복사됨 — Supabase SQL Editor에 붙여넣고 Run');}
 
 /* ---------- helpers ---------- */
 function uid(){return 'x'+Math.random().toString(36).slice(2,9);}
@@ -300,6 +344,12 @@ window.addEventListener('hashchange',render);
 
 /* ---------- HOME ---------- */
 function cloudBanner(){
+ if(cloud&&cloudStatus!=='notable'){
+  return `<div class="banner" style="background:#e9f5ea;border-color:#bfe0c2;color:#1f6b31">☁️ <b>클라우드 저장됨</b> — 폰·PC 어디서나 동기화돼요. <span class="bx" id="cloudDot" style="margin-left:auto;font-size:11.5px;color:#2f7d43"></span></div>`;
+ }
+ if(cloud&&cloudStatus==='notable'){
+  return `<div class="banner">⚠️ <b>테이블 생성 필요</b> — 설정에서 SQL 한 번만 실행하면 영구 저장이 켜져요. <span class="bx"><button onclick="go('settings')">설정으로</button></span></div>`;
+ }
  return `<div class="banner">⚠️ <b>임시 저장 중</b> — 지금은 이 브라우저에만 저장돼요(지워질 수 있음). <span class="bx"><button onclick="doBackup()">백업 내보내기</button><button class="gh" onclick="go('settings')">클라우드 연결</button></span></div>`;
 }
 function viewHome(){
@@ -506,11 +556,23 @@ function viewSettings(){
    <p class="subttl" style="line-height:1.6;margin:6px 0 14px">지금은 <b>이 브라우저에만</b> 저장돼요(임시). 아래 클라우드(Supabase)를 연결하면 폰·PC 어디서나 남고 절대 안 날아갑니다.</p>
    <div class="rowflex" style="gap:10px;flex-wrap:wrap"><button class="btn gh" onclick="doBackup()">백업 파일 내보내기</button><label class="btn gh" style="cursor:pointer">백업 불러오기<input type="file" accept="application/json" style="display:none" onchange="doRestore(this)"></label></div>
   </div>
-  <div class="panel"><div class="ph"><div class="t">☁️ 클라우드 연결 (Supabase)</div></div>
-   <p class="subttl" style="line-height:1.6;margin:6px 0 14px">Supabase 프로젝트 URL과 anon 키를 넣으면 영구 저장으로 전환돼요. (anon 키는 앱에 넣어도 되는 공개용 키입니다.)</p>
-   <div class="f"><label>Project URL</label><input id="sb_url" placeholder="https://xxxx.supabase.co"></div>
-   <div class="f"><label>anon public key</label><input id="sb_key" placeholder="eyJ..."></div>
-   <button class="btn" onclick="toast('클라우드 연결은 다음 업데이트에서 활성화됩니다 — 값은 저장해뒀어요')" >연결</button>
+  <div class="panel"><div class="ph"><div class="t">☁️ 클라우드 연결 (Supabase)</div>${cloud?'<button class="btn gh sm" onclick="cloudDisconnect()">연결 해제</button>':''}</div>
+   <p class="subttl" style="line-height:1.6;margin:6px 0 14px">${cloud?(cloudStatus==='notable'?'연결됨. 아래 SQL을 Supabase에서 한 번 실행하면 완료돼요.':'✅ 연결됨 — 데이터가 클라우드에 영구 저장됩니다.'):'Supabase 프로젝트 URL과 anon 키를 넣으면 폰·PC 어디서나 남고 안 날아가요. (anon 키는 앱에 넣어도 되는 공개용 키입니다.)'}</p>
+   <div class="f"><label>Project URL</label><input id="sb_url" placeholder="https://xxxx.supabase.co" value="${esc(cloud?.url||'')}"></div>
+   <div class="f"><label>anon public key</label><input id="sb_key" placeholder="eyJ..." value="${esc(cloud?.key||'')}"></div>
+   <button class="btn" onclick="cloudConnect()">${cloud?'다시 연결':'연결'}</button>
+   <div style="margin-top:16px;border-top:1px solid var(--line2);padding-top:14px">
+    <div class="rowflex" style="justify-content:space-between;margin-bottom:8px"><b style="font-size:13px">1회 설정: 테이블 만들기</b><button class="btn gh sm" onclick="copySQL()">SQL 복사</button></div>
+    <p class="subttl" style="line-height:1.6">Supabase 대시보드 → SQL Editor에 아래를 붙여넣고 <b>Run</b> 한 번만 하면 끝이에요.</p>
+    <pre style="background:#faf7ee;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:11px;overflow-x:auto;margin-top:8px;line-height:1.5;color:#4a4436">create table if not exists moredo_state (
+  id text primary key, data jsonb, updated_at timestamptz default now());
+alter table moredo_state enable row level security;
+create policy "anon all" on moredo_state for all using (true) with check (true);</pre>
+   </div>
+  </div>
+  <div class="panel" style="margin-top:16px"><div class="ph"><div class="t">예시 데이터</div></div>
+   <p class="subttl" style="margin:6px 0 12px">지금은 시연용 예시 데이터가 들어있어요. 실제 사용 시작할 때 한 번 비우세요.</p>
+   <button class="btn gh" onclick="if(confirm('예시 데이터를 모두 지울까요? (되돌릴 수 없음)')){DB={seeded:true,sites:[],sales:[],customers:[],dict:[],tasks:[]};save();render();toast('비웠어요 — 새로 등록해보세요')}">예시 데이터 비우기</button>
   </div>`;
 }
 function doBackup(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='모두랩_백업_'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('백업 파일 저장됨');}
@@ -537,6 +599,6 @@ function openModal(html){$('modal').innerHTML=html;$('ov').classList.add('on');}
 function closeModal(){$('ov').classList.remove('on');}
 
 /* ---------- init ---------- */
-load();render();
+load();loadCloud();render();cloudPullMerge();
 </script>
 </body></html>

@@ -725,12 +725,30 @@ function openSaves(){
 }
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),2200);}
 
+/* ---------- 단가사전에서 담은 품목 불러오기 ---------- */
+function importDictPicks(){
+  let picks=[];try{picks=JSON.parse(localStorage.getItem("mdl_dict_pick")||"[]");}catch(e){}
+  if(!picks.length)return false;
+  const byCat={};picks.forEach(p=>{(byCat[p.cat||"담은 품목"]=byCat[p.cat||"담은 품목"]||[]).push(p);});
+  Object.keys(byCat).forEach(cat=>{
+    let sec=state.sections.find(s=>s.name===cat);
+    if(!sec){sec={name:cat,items:[]};state.sections.push(sec);}
+    byCat[cat].forEach(p=>sec.items.push({name:p.name||"",spec:p.spec||"",unit:p.unit||"식",qty:"1",mat:String(p.mat||""),lab:String(p.lab||"")}));
+  });
+  state.sections=state.sections.filter(s=>(s.name&&s.name.trim())||s.items.some(it=>it.name&&it.name.trim()));
+  if(!state.sections.length)state.sections=[blankSection()];
+  localStorage.removeItem("mdl_dict_pick");
+  return picks.length;
+}
 /* ---------- init ---------- */
 (function(){
   const saved=localStorage.getItem("mdl_draft");
   state=saved?JSON.parse(saved):defaultState();
   if(!state.sections||!state.sections.length)state.sections=[blankSection()];
-  pushForm();renderSections();goStep(1);
+  const picked=importDictPicks();
+  pushForm();renderSections();
+  if(picked){autosave();goStep(2);setTimeout(()=>toast("단가사전에서 "+picked+"개 품목을 불러왔어요"),300);}
+  else goStep(1);
 })();
 </script>
 </body>
