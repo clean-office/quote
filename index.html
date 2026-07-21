@@ -697,7 +697,42 @@ function importText(){
 }
 
 /* ---------- storage ---------- */
-function autosave(){localStorage.setItem("mdl_draft",JSON.stringify(state));}
+function autosave(){localStorage.setItem("mdl_draft",JSON.stringify(state));cloudPushEstimates();}
+/* 저장목록 클라우드 동기화 (관리앱과 같은 mdl_cloud 설정 공유) */
+const _cloud=(()=>{try{return JSON.parse(localStorage.getItem('mdl_cloud'));}catch(e){return null;}})();
+let _cloudTimer=null;
+function _sbh(){return {apikey:_cloud.key,Authorization:'Bearer '+_cloud.key,'Content-Type':'application/json'};}
+function cloudPushEstimates(){
+  if(!_cloud||!_cloud.url||!_cloud.key)return;
+  clearTimeout(_cloudTimer);
+  _cloudTimer=setTimeout(async()=>{
+    try{
+      const local=JSON.parse(localStorage.getItem('mdl_saves')||'{}');
+      let remote={};
+      try{const r=await fetch(_cloud.url+'/rest/v1/moredo_state?id=eq.estimates&select=data',{headers:_sbh()});
+        if(r.ok){const rows=await r.json();remote=(rows[0]&&rows[0].data&&rows[0].data.saves)||{};}}catch(e){}
+      const merged={...remote};
+      Object.keys(local).forEach(k=>{if(!merged[k]||(local[k].t||0)>=(merged[k].t||0))merged[k]=local[k];});
+      localStorage.setItem('mdl_saves',JSON.stringify(merged));
+      const payload={saves:merged,draft:JSON.parse(localStorage.getItem('mdl_draft')||'null'),_ts:Date.now()};
+      await fetch(_cloud.url+'/rest/v1/moredo_state',{method:'POST',headers:{..._sbh(),Prefer:'resolution=merge-duplicates'},body:JSON.stringify([{id:'estimates',data:payload,updated_at:new Date().toISOString()}])});
+    }catch(e){}
+  },700);
+}
+async function cloudPullEstimates(){
+  if(!_cloud||!_cloud.url||!_cloud.key)return;
+  try{
+    const r=await fetch(_cloud.url+'/rest/v1/moredo_state?id=eq.estimates&select=data',{headers:_sbh()});
+    if(!r.ok)return;
+    const rows=await r.json();const rd=rows[0]&&rows[0].data;
+    if(rd&&rd.saves){
+      const local=JSON.parse(localStorage.getItem('mdl_saves')||'{}');
+      const merged={...rd.saves};
+      Object.keys(local).forEach(k=>{if(!merged[k]||(local[k].t||0)>(merged[k].t||0))merged[k]=local[k];});
+      localStorage.setItem('mdl_saves',JSON.stringify(merged));
+    }
+  }catch(e){}
+}
 function newQuote(){if(!confirm("새 견적을 시작할까요? (현재 내용은 자동저장됨)"))return;
   if(state.title)saveNamed(state.title+" (백업)");
   state=defaultState();pushForm();renderSections();updateSummary();autosave();goStep(1);}
@@ -707,8 +742,13 @@ function saveAs(){pullForm();
 function saveNamed(nm){
   const all=JSON.parse(localStorage.getItem("mdl_saves")||"{}");
   all[nm]={t:Date.now(),data:state};
-  localStorage.setItem("mdl_saves",JSON.stringify(all));}
+  localStorage.setItem("mdl_saves",JSON.stringify(all));cloudPushEstimates();}
 function openSaves(){
+  cloudPullEstimates().then(()=>{if($("dlgSaves").open)renderSaveList();});
+  renderSaveList();
+  $("dlgSaves").showModal();
+}
+function renderSaveList(){
   const all=JSON.parse(localStorage.getItem("mdl_saves")||"{}");
   const ul=$("saveList");ul.innerHTML="";
   const keys=Object.keys(all).sort((a,b)=>all[b].t-all[a].t);
@@ -718,10 +758,9 @@ function openSaves(){
     li.innerHTML=`<span class="nm">${esc(k)}<br><small style="color:#999">${new Date(all[k].t).toLocaleString("ko-KR")}</small></span>
     <button class="open">열기</button><button class="del">삭제</button>`;
     li.children[1].onclick=()=>{state=all[k].data;if(!state.sections||!state.sections.length)state.sections=[blankSection()];pushForm();renderSections();updateSummary();autosave();$("dlgSaves").close();goStep(1);toast("불러왔습니다");};
-    li.children[2].onclick=()=>{if(confirm("삭제할까요?")){delete all[k];localStorage.setItem("mdl_saves",JSON.stringify(all));openSaves();}};
+    li.children[2].onclick=()=>{if(confirm("삭제할까요?")){delete all[k];localStorage.setItem("mdl_saves",JSON.stringify(all));cloudPushEstimates();renderSaveList();}};
     ul.appendChild(li);
   });
-  $("dlgSaves").showModal();
 }
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),2200);}
 
@@ -742,6 +781,7 @@ function importDictPicks(){
 }
 /* ---------- init ---------- */
 (function(){
+  cloudPullEstimates();
   const saved=localStorage.getItem("mdl_draft");
   state=saved?JSON.parse(saved):defaultState();
   if(!state.sections||!state.sections.length)state.sections=[blankSection()];
