@@ -192,6 +192,7 @@ dialog h3{font-size:16px;margin-bottom:10px;}
 
 <dialog id="dlgSaves">
   <h3>저장된 견적</h3>
+  <input id="saveSearch" class="in" placeholder="🔍 현장명 검색" oninput="renderSaveList()" style="margin-bottom:12px">
   <ul class="savelist" id="saveList"></ul>
   <button class="dclose" onclick="dlgSaves.close()">닫기</button>
 </dialog>
@@ -748,18 +749,31 @@ function openSaves(){
   renderSaveList();
   $("dlgSaves").showModal();
 }
+function projBase(n){return (n||"").replace(/\s*v\d+\s*$/i,"").replace(/\s*\(\d{4}-\d{2}-\d{2}\)\s*$/,"").replace(/\s*\(백업\)\s*$/,"").trim()||n;}
 function renderSaveList(){
   const all=JSON.parse(localStorage.getItem("mdl_saves")||"{}");
+  const q=(($("saveSearch")&&$("saveSearch").value)||"").trim().toLowerCase();
   const ul=$("saveList");ul.innerHTML="";
-  const keys=Object.keys(all).sort((a,b)=>all[b].t-all[a].t);
-  if(!keys.length)ul.innerHTML="<li class='nm' style='color:#999'>저장된 견적이 없습니다</li>";
-  keys.forEach(k=>{
-    const li=document.createElement("li");
-    li.innerHTML=`<span class="nm">${esc(k)}<br><small style="color:#999">${new Date(all[k].t).toLocaleString("ko-KR")}</small></span>
-    <button class="open">열기</button><button class="del">삭제</button>`;
-    li.children[1].onclick=()=>{state=all[k].data;if(!state.sections||!state.sections.length)state.sections=[blankSection()];pushForm();renderSections();updateSummary();autosave();$("dlgSaves").close();goStep(1);toast("불러왔습니다");};
-    li.children[2].onclick=()=>{if(confirm("삭제할까요?")){delete all[k];localStorage.setItem("mdl_saves",JSON.stringify(all));cloudPushEstimates();renderSaveList();}};
-    ul.appendChild(li);
+  let keys=Object.keys(all);
+  if(q)keys=keys.filter(k=>k.toLowerCase().includes(q));
+  if(!keys.length){ul.innerHTML="<li class='nm' style='color:#999'>"+(q?"검색 결과 없음":"저장된 견적이 없습니다")+"</li>";return;}
+  const groups={};keys.forEach(k=>{const b=projBase(k);(groups[b]=groups[b]||[]).push(k);});
+  const gnames=Object.keys(groups).sort((a,b)=>Math.max(...groups[b].map(k=>all[k].t||0))-Math.max(...groups[a].map(k=>all[k].t||0)));
+  gnames.forEach(g=>{
+    const items=groups[g].sort((a,b)=>(all[b].t||0)-(all[a].t||0));
+    const hd=document.createElement("li");
+    hd.style.cssText="display:block;border:none;padding:13px 2px 5px;font-size:12.5px;font-weight:800;color:#8B6914";
+    hd.textContent="📁 "+g+"  ("+items.length+")";
+    ul.appendChild(hd);
+    items.forEach(k=>{
+      const li=document.createElement("li");li.style.paddingLeft="10px";
+      const label=(k===g)?new Date(all[k].t).toLocaleDateString("ko-KR"):esc(k);
+      li.innerHTML=`<span class="nm">${label}<br><small style="color:#999">${new Date(all[k].t).toLocaleString("ko-KR")}</small></span>
+      <button class="open">열기</button><button class="del">삭제</button>`;
+      li.children[1].onclick=()=>{state=all[k].data;if(!state.sections||!state.sections.length)state.sections=[blankSection()];pushForm();renderSections();updateSummary();autosave();$("dlgSaves").close();goStep(1);toast("불러왔습니다");};
+      li.children[2].onclick=()=>{if(confirm("삭제할까요?")){delete all[k];localStorage.setItem("mdl_saves",JSON.stringify(all));cloudPushEstimates();renderSaveList();}};
+      ul.appendChild(li);
+    });
   });
 }
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("on");setTimeout(()=>t.classList.remove("on"),2200);}
