@@ -166,7 +166,7 @@ dialog h3{font-size:16px;margin-bottom:10px;}
 
     <div class="step" data-s="4">
       <div class="exprow">
-        <button class="expbtn pri" onclick="exportJPG()">JPG 저장 (3장)</button>
+        <button class="expbtn pri" onclick="exportJPG()">JPG 저장</button>
         <button class="expbtn pri" onclick="exportXLSX()">엑셀 저장</button>
       </div>
       <button class="expbtn" onclick="saveAs()">저장목록에 저장</button>
@@ -175,8 +175,7 @@ dialog h3{font-size:16px;margin-bottom:10px;}
       <div class="sheetwrap"><div class="sheet" id="sheetGap"></div></div>
       <div class="sheetlabel">2. 집계표</div>
       <div class="sheetwrap"><div class="sheet" id="sheetSum"></div></div>
-      <div class="sheetlabel">3. 공사 내역서</div>
-      <div class="sheetwrap"><div class="sheet" id="sheetDet"></div></div>
+      <div id="detPages"></div>
       <div class="note">로고·명함·엑셀 수식은 기존 그대로 유지됩니다.</div>
     </div>
   </div>
@@ -426,7 +425,7 @@ function buildPreview(){
     ${footerBar(8.5)}
   </div>`;
 
-  /* 내역서 */
+  /* 내역서 — 가로 720×509 고정, 양 많으면 다음 장으로 분할 */
   const drows=[];
   state.sections.forEach((s,i)=>{
     drows.push({name:`${i+1}. ${esc(s.name)||"—"}`,spec:"",unit:"",qty:"",mat:"",lab:"",amt:"",w:800,bg:"transparent",color:DOC_GOLD});
@@ -438,23 +437,33 @@ function buildPreview(){
     });
     drows.push({name:"소계",spec:"",unit:"",qty:"",mat:"",lab:"",amt:fmt(secSum(s).t),w:700,bg:"transparent",color:"#444"});
   });
-  const detRows=drows.map(r=>`<div style="display:grid;grid-template-columns:1.5fr 1.2fr .5fr .55fr .95fr .95fr 1.05fr;font-size:9.5px;padding:4.5px 2px;border-bottom:1px solid #f5f5f5;gap:4px;font-weight:${r.w};background:${r.bg};color:${r.color}"><span>${r.name}</span><span>${r.spec}</span><span>${r.unit}</span><span style="text-align:right;">${r.qty}</span><span style="text-align:right;">${r.mat}</span><span style="text-align:right;">${r.lab}</span><span style="text-align:right;">${r.amt}</span></div>`).join("");
-  $("sheetDet").innerHTML=`<div class="pad" style="padding:30px 36px;">
+  const rowH=r=>{const lines=Math.max(Math.ceil(String(r.name||"").length/15),Math.ceil(String(r.spec||"").length/12),1);return 10+11.5*lines;};
+  const DET_BUDGET=320;
+  const dpages=[[]];let dused=0;
+  drows.forEach(r=>{const h=rowH(r);if(dused+h>DET_BUDGET&&dpages[dpages.length-1].length){dpages.push([]);dused=0;}dpages[dpages.length-1].push(r);dused+=h;});
+  const npg=dpages.length;
+  const detRow=r=>`<div style="display:grid;grid-template-columns:1.5fr 1.2fr .5fr .55fr .95fr .95fr 1.05fr;font-size:9.5px;padding:4.5px 2px;border-bottom:1px solid #f5f5f5;gap:4px;font-weight:${r.w};background:${r.bg};color:${r.color}"><span>${r.name}</span><span>${r.spec}</span><span>${r.unit}</span><span style="text-align:right;">${r.qty}</span><span style="text-align:right;">${r.mat}</span><span style="text-align:right;">${r.lab}</span><span style="text-align:right;">${r.amt}</span></div>`;
+  $("detPages").innerHTML=dpages.map((rows,pi)=>{
+    const last=pi===npg-1;
+    const label=npg>1?`3-${pi+1}. 공사 내역서 (${pi+1}/${npg})`:`3. 공사 내역서`;
+    return `<div class="sheetlabel">${label}</div>
+    <div class="sheetwrap"><div class="sheet det" style="height:509px;"><div class="pad" style="padding:30px 36px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;">
-      <div><div style="font-size:8.5px;letter-spacing:.35em;color:${DOC_GOLD};font-weight:700;">DETAILS</div><div style="font-size:15px;font-weight:800;margin-top:4px;">공사 내역서</div></div>
+      <div><div style="font-size:8.5px;letter-spacing:.35em;color:${DOC_GOLD};font-weight:700;">DETAILS</div><div style="font-size:15px;font-weight:800;margin-top:4px;">공사 내역서${npg>1?` <span style=\"font-size:9px;color:#999;font-weight:600;\">${pi+1} / ${npg}</span>`:""}</div></div>
       <div style="text-align:right;">${wordmark(11)}<div style="font-size:8px;color:#999;margin-top:3px;">${title} · ${dt}</div></div>
     </div>
     <div style="display:grid;grid-template-columns:1.5fr 1.2fr .5fr .55fr .95fr .95fr 1.05fr;font-size:8px;font-weight:700;color:#888;border-top:2px solid #1c1c1c;border-bottom:1px solid #1c1c1c;padding:5.5px 2px;margin-top:10px;gap:4px;">
       <span>품 명</span><span>규 격</span><span>단위</span><span style="text-align:right;">수량</span><span style="text-align:right;">재료단가</span><span style="text-align:right;">노무단가</span><span style="text-align:right;">금 액</span>
     </div>
-    ${detRows}
+    ${rows.map(detRow).join("")}
     <div style="flex:1;"></div>
-    <div style="border-top:2px solid #1c1c1c;padding-top:8px;display:flex;justify-content:space-between;align-items:baseline;">
-      <span style="font-size:10px;font-weight:800;">직접공사비 계 <span style="font-size:8px;color:#999;font-weight:600;">간접비·합계는 집계표 참조</span></span>
+    ${last?`<div style="border-top:2px solid #1c1c1c;padding-top:8px;display:flex;justify-content:space-between;align-items:baseline;">
+      <span style="font-size:10px;font-weight:800;">직접공사비 계 <span style=\"font-size:8px;color:#999;font-weight:600;\">간접비·합계는 집계표 참조</span></span>
       <span style="font-size:16px;font-weight:800;">₩${fmt(c.direct)}</span>
-    </div>
+    </div>`:`<div style="text-align:right;font-size:8.5px;color:#999;padding-top:6px;">— 다음 장에 계속 —</div>`}
     ${footerBar(8)}
-  </div>`;
+    </div></div></div>`;
+  }).join("");
 }
 function fitSheets(){
   document.querySelectorAll(".sheetwrap").forEach(w=>{
@@ -474,13 +483,15 @@ async function exportJPG(){
   $("busy").style.display="flex";
   buildPreview();
   document.querySelectorAll(".sheet").forEach(s=>s.style.transform="scale(1)");
-  const names={sheetGap:"1_갑지",sheetSum:"2_집계표",sheetDet:"3_내부내역"};
+  const jobs=[{el:$("sheetGap"),name:"1_갑지"},{el:$("sheetSum"),name:"2_집계표"}];
+  const detEls=[...document.querySelectorAll("#detPages .sheet")];
+  detEls.forEach((el,i)=>jobs.push({el,name:detEls.length>1?`3_내부내역_${i+1}`:"3_내부내역"}));
   try{
     const files=[];
-    for(const id of Object.keys(names)){
-      const cv=await html2canvas($(id),{scale:3,backgroundColor:"#ffffff"});
+    for(const j of jobs){
+      const cv=await html2canvas(j.el,{scale:3,backgroundColor:"#ffffff"});
       const blob=await new Promise(res=>cv.toBlob(res,"image/jpeg",0.92));
-      files.push(new File([blob],`${state.title}_${names[id]}.jpg`,{type:"image/jpeg"}));
+      files.push(new File([blob],`${state.title}_${j.name}.jpg`,{type:"image/jpeg"}));
     }
     /* 폰: 공유 시트로 사진 앱 저장 / PC: 다운로드 */
     if(isMobile && navigator.canShare && navigator.canShare({files})){
@@ -493,7 +504,7 @@ async function exportJPG(){
       }
     }else{
       for(const f of files){dlFile(f);await new Promise(r=>setTimeout(r,400));}
-      toast("JPG 3장 저장 완료");
+      toast(`JPG ${files.length}장 저장 완료`);
     }
   }catch(e){toast("오류: "+e.message);}
   fitSheets();
@@ -507,6 +518,7 @@ async function exportXLSX(){
   $("busy").style.display="flex";
   try{
     const wb=new ExcelJS.Workbook();
+    wb.calcProperties={fullCalcOnLoad:true};
     const thin={style:"thin"},bAll={top:thin,left:thin,bottom:thin,right:thin};
     const F=(sz,b)=>({name:"맑은 고딕",size:sz,bold:!!b});
     const ctr={horizontal:"center",vertical:"middle"};
@@ -517,7 +529,8 @@ async function exportXLSX(){
     g.columns=[{width:8},{width:16},{width:16},{width:16},{width:16},{width:16},{width:14},{width:14},{width:14}];
     const logoId=wb.addImage({base64:LOGO_B64.split(",")[1],extension:"png"});
     const cardId=wb.addImage({base64:CARD_B64.split(",")[1],extension:"jpeg"});
-    g.addImage(logoId,{tl:{col:0.1,row:0.3},ext:{width:330,height:68}});
+    g.getRow(1).height=20;g.getRow(2).height=20;
+    g.addImage(logoId,{tl:{col:0.05,row:0.1},ext:{width:250,height:51}});
     g.mergeCells("D1:I2");g.getCell("D1").value="공 사 명 / PROJECT : "+state.title;
     g.getCell("D1").font=F(16,true);g.getCell("D1").alignment={horizontal:"left",vertical:"middle"};
     g.mergeCells("A3:D4");g.getCell("A3").value="제 출 처 / TO : "+state.client;g.getCell("A3").font=F(12);g.getCell("A3").alignment={horizontal:"left",vertical:"middle"};
@@ -529,7 +542,7 @@ async function exportXLSX(){
     g.getCell("A8").font=F(13,true);g.getCell("A8").alignment={horizontal:"left",vertical:"middle",wrapText:true};
     g.mergeCells("A11:E20");g.getCell("A11").value="견 적 조 건 / TERMS :\n"+state.terms;
     g.getCell("A11").font=F(11);g.getCell("A11").alignment={horizontal:"left",vertical:"top",wrapText:true};
-    g.addImage(cardId,{tl:{col:6.2,row:10.2},ext:{width:200,height:312}});
+    g.addImage(cardId,{tl:{col:6.5,row:10.4},ext:{width:125,height:195}});
     [["A2","I2"],["A4","I4"],["A6","I6"],["A20","I20"]].forEach(([a,b])=>{
       for(let col=a.charCodeAt(0);col<=b.charCodeAt(0);col++)
         g.getCell(String.fromCharCode(col)+a.slice(1)).border={bottom:{style:"medium"}};
@@ -567,23 +580,28 @@ async function exportXLSX(){
       const first=r;
       s.items.forEach(it=>{
         if(!(it.name||it.spec||num(it.qty)))return;
+        const a=itemAmt(it);
         dt.getCell(`B${r}`).value="  "+it.name;dt.getCell(`C${r}`).value=it.spec;
         dt.getCell(`D${r}`).value=it.unit;dt.getCell(`E${r}`).value=num(it.qty)||null;
         if(num(it.mat))dt.getCell(`F${r}`).value=num(it.mat);
-        dt.getCell(`G${r}`).value={formula:`E${r}*F${r}`};
+        dt.getCell(`G${r}`).value={formula:`E${r}*F${r}`,result:a.m};
         if(num(it.lab))dt.getCell(`H${r}`).value=num(it.lab);
-        dt.getCell(`I${r}`).value={formula:`E${r}*H${r}`};
-        dt.getCell(`J${r}`).value={formula:`F${r}+H${r}`};
-        dt.getCell(`K${r}`).value={formula:`G${r}+I${r}`};
+        dt.getCell(`I${r}`).value={formula:`E${r}*H${r}`,result:a.l};
+        dt.getCell(`J${r}`).value={formula:`F${r}+H${r}`,result:num(it.mat)+num(it.lab)};
+        dt.getCell(`K${r}`).value={formula:`G${r}+I${r}`,result:a.m+a.l};
         styleRow(dt,r,12);r++;
       });
       const last=r-1;
+      const ss=secSum(s);
       dt.getCell(`B${r}`).value="소    계";dt.getCell(`B${r}`).font=F(10,true);
-      ["G","I","K"].forEach(col=>{dt.getCell(`${col}${r}`).value={formula:last>=first?`SUM(${col}${first}:${col}${last})`:"0"};});
-      styleRow(dt,r,12,gray);secSub.push({name:s.name,row:r});r++;
+      const ssv={G:ss.m,I:ss.l,K:ss.t};
+      ["G","I","K"].forEach(col=>{dt.getCell(`${col}${r}`).value=last>=first?{formula:`SUM(${col}${first}:${col}${last})`,result:ssv[col]}:0;});
+      styleRow(dt,r,12,gray);secSub.push({name:s.name,row:r,t:ss.t});r++;
     });
+    const allM=state.sections.reduce((a,s)=>a+secSum(s).m,0),allL=state.sections.reduce((a,s)=>a+secSum(s).l,0);
+    const gsv={G:allM,I:allL,K:c.direct};
     dt.getCell(`B${r}`).value="총    계";dt.getCell(`B${r}`).font=F(11,true);
-    ["G","I","K"].forEach(col=>{dt.getCell(`${col}${r}`).value={formula:secSub.map(x=>col+x.row).join("+")};});
+    ["G","I","K"].forEach(col=>{dt.getCell(`${col}${r}`).value={formula:secSub.map(x=>col+x.row).join("+"),result:gsv[col]};});
     styleRow(dt,r,12,dark);
 
     /* 집계표 */
@@ -597,12 +615,12 @@ async function exportXLSX(){
     secSub.forEach((x,i)=>{
       sm.getCell(`A${q}`).value=i+1;sm.getCell(`B${q}`).value=x.name;
       sm.getCell(`D${q}`).value="식";sm.getCell(`E${q}`).value=1;
-      sm.getCell(`M${q}`).value={formula:`내부내역!K${x.row}`};
+      sm.getCell(`M${q}`).value={formula:`내부내역!K${x.row}`,result:x.t};
       styleRow(sm,q,14);q++;
     });
     const lastS=q-1;
     sm.getCell(`B${q}`).value="소    계";sm.getCell(`B${q}`).font=F(10,true);
-    sm.getCell(`M${q}`).value={formula:`SUM(M${firstS}:M${lastS})`};
+    sm.getCell(`M${q}`).value={formula:`SUM(M${firstS}:M${lastS})`,result:c.direct};
     styleRow(sm,q,14,gray);const directRow=q;q+=2;
     sm.getCell(`A${q}`).value="B";sm.getCell(`B${q}`).value="간접공사비";
     sm.getCell(`A${q}`).font=F(10,true);sm.getCell(`B${q}`).font=F(10,true);styleRow(sm,q,14);q++;
@@ -610,16 +628,16 @@ async function exportXLSX(){
     const indFirst=q;
     ind.forEach(([nm,rt])=>{
       sm.getCell(`B${q}`).value=nm;sm.getCell(`C${q}`).value=`직접공사비 *${rt}%`;
-      sm.getCell(`M${q}`).value={formula:`ROUND(M${directRow}*${rt/100},0)`};
+      sm.getCell(`M${q}`).value={formula:`ROUND(M${directRow}*${rt/100},0)`,result:Math.round(c.direct*rt/100)};
       styleRow(sm,q,14);q++;
     });
     sm.getCell(`B${q}`).value="소    계";sm.getCell(`B${q}`).font=F(10,true);
-    sm.getCell(`M${q}`).value={formula:`SUM(M${indFirst}:M${q-1})`};
+    sm.getCell(`M${q}`).value={formula:`SUM(M${indFirst}:M${q-1})`,result:c.indirect};
     styleRow(sm,q,14,gray);const indRow=q;q++;
     sm.getCell(`B${q}`).value="단수정리";sm.getCell(`M${q}`).value=c.cut;
     styleRow(sm,q,14);const cutRow=q;q+=2;
     sm.getCell(`B${q}`).value="합    계";sm.getCell(`B${q}`).font=F(11,true);
-    sm.getCell(`M${q}`).value={formula:`M${directRow}+M${indRow}-M${cutRow}`};
+    sm.getCell(`M${q}`).value={formula:`M${directRow}+M${indRow}-M${cutRow}`,result:c.total};
     styleRow(sm,q,14,dark);
 
     function styleRow(ws,row,ncols,fill){
