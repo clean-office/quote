@@ -173,6 +173,35 @@ input,textarea,select{font-family:inherit;font-size:15px;}
 .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--espresso);color:#f2f2f2;padding:11px 20px;border-radius:22px;font-size:13.5px;z-index:200;opacity:0;transition:.25s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.3);}
 .toast.on{opacity:1;}
 
+/* calendar */
+.calhead{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.calhead .cm{font-size:18px;font-weight:800;min-width:110px;text-align:center;}
+.calhead button.nav{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--card);font-size:15px;font-weight:700;}
+.vtog{display:flex;background:var(--card);border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-left:auto;}
+.vtog button{padding:8px 14px;font-size:13px;font-weight:700;color:var(--muted);}
+.vtog button.on{background:var(--espresso);color:#fff;}
+.calwk{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px;}
+.calwk span{text-align:center;font-size:12px;font-weight:700;color:var(--muted);padding:6px 0;}
+.calwk span:first-child{color:var(--bad);}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+.cald{background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:88px;padding:7px 7px 5px;cursor:pointer;overflow:hidden;}
+.cald .dn{font-size:12.5px;font-weight:700;color:var(--ink2);}
+.cald.sun .dn{color:var(--bad);}
+.cald.other{opacity:.38;}
+.cald.today{border:1.5px solid var(--ink);}
+.cald.today .dn{background:var(--espresso);color:#fff;border-radius:6px;padding:1px 6px;display:inline-block;}
+.cald.sel{background:var(--goldFaint);border-color:var(--ink2);}
+.calev{font-size:11px;font-weight:600;background:#ececea;border-radius:5px;padding:2px 5px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.calev.past{opacity:.5;}
+.calmore{font-size:10.5px;color:var(--muted);margin-top:2px;font-weight:700;}
+@media(max-width:860px){
+ .cald{min-height:56px;padding:5px 4px;border-radius:8px;}
+ .calev{display:none;}
+ .cald .dots{display:flex;gap:2px;margin-top:4px;flex-wrap:wrap;}
+ .cald .dots i{width:5px;height:5px;border-radius:50%;background:var(--ink);display:block;}
+}
+@media(min-width:861px){.cald .dots{display:none;}}
+
 /* mobile bottom tab */
 .mtab{display:none;}
 @media(max-width:860px){
@@ -699,18 +728,55 @@ function updateSale(id){const s=DB.sales.find(x=>x.id===id);if(!s)return;s.name=
 function delSale(id){if(!confirm('이 영업 건을 삭제할까요?'))return;DB.sales=DB.sales.filter(x=>x.id!==id);save();closeModal();render();toast('삭제됨');}
 
 /* ---------- SCHEDULE (미팅·일정) ---------- */
+let calYM=null;
+let schedMode=localStorage.getItem('mdl_sched_view')||'cal';
+let calSel=null;
+function setSchedMode(m){schedMode=m;localStorage.setItem('mdl_sched_view',m);render();}
+function calMove(d){const [y,m]=calYM.split('-').map(Number);const nd=new Date(y,m-1+d,1);calYM=nd.getFullYear()+'-'+String(nd.getMonth()+1).padStart(2,'0');calSel=null;render();}
+function calPick(dt){calSel=dt;render();}
+function schedRow(s){const[lb,cl]=dayLabel(s.date);return `<div class="rowitem"><div class="savatar" style="background:var(--goldFaint)"><svg viewBox="0 0 24 24">${IC.cal}</svg></div><div class="info"><div class="nm">${esc(s.title)}</div><div class="mt">${esc(s.date)}${s.time?' '+esc(s.time):''}${s.with?' · '+esc(s.with):''}${s.memo?' · '+esc(s.memo):''}${addrLink(s.addr)}${phoneLink(s.phone)}</div></div><span class="schip" style="color:${cl};background:var(--goldFaint)"><span class="sdot"></span>${lb}${s.time?' '+esc(s.time):''}</span><button onclick="delMeeting('${s.id}')" style="color:var(--muted);font-size:16px;flex-shrink:0">×</button></div>`;}
 function viewSchedule(){
  const t=todayStr();
- const list=[...DB.schedule].sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||'')));
- const upcoming=list.filter(s=>s.date>=t), past=list.filter(s=>s.date<t).reverse();
- const row=(s)=>{const[lb,cl]=dayLabel(s.date);return `<div class="rowitem"><div class="savatar" style="background:var(--goldFaint)"><svg viewBox="0 0 24 24">${IC.cal}</svg></div><div class="info"><div class="nm">${esc(s.title)}</div><div class="mt">${esc(s.date)}${s.time?' '+esc(s.time):''}${s.with?' · '+esc(s.with):''}${s.memo?' · '+esc(s.memo):''}${addrLink(s.addr)}${phoneLink(s.phone)}</div></div><span class="schip" style="color:${cl};background:var(--goldFaint)"><span class="sdot"></span>${lb}${s.time?' '+esc(s.time):''}</span><button onclick="delMeeting('${s.id}')" style="color:var(--muted);font-size:16px;flex-shrink:0">×</button></div>`;};
- return `<div class="rowflex" style="justify-content:space-between;margin-bottom:14px"><div class="subttl">다가오는 일정 ${upcoming.length}건</div><button class="btn sm" onclick="addMeeting()">＋ 일정 등록</button></div>
-  <div class="panel">${upcoming.length?upcoming.map(row).join(''):'<div class="empty">다가오는 일정이 없어요 — ＋로 미팅·실측·시공 일정을 올려보세요</div>'}</div>
-  ${past.length?`<div class="ph" style="margin:18px 2px 8px"><div class="t" style="font-size:13px;color:var(--muted)">지난 일정</div></div><div class="panel" style="opacity:.7">${past.slice(0,10).map(row).join('')}</div>`:''}`;
+ if(schedMode==='list'){
+  const list=[...DB.schedule].sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||'')));
+  const upcoming=list.filter(s=>s.date>=t), past=list.filter(s=>s.date<t).reverse();
+  return `<div class="rowflex" style="justify-content:space-between;margin-bottom:14px"><div class="subttl">다가오는 일정 ${upcoming.length}건</div>
+   <div class="rowflex"><div class="vtog"><button class="on" onclick="setSchedMode('list')">목록</button><button onclick="setSchedMode('cal')">달력</button></div><button class="btn sm" onclick="addMeeting()">＋ 일정 등록</button></div></div>
+   <div class="panel">${upcoming.length?upcoming.map(schedRow).join(''):'<div class="empty">다가오는 일정이 없어요 — ＋로 미팅·실측·시공 일정을 올려보세요</div>'}</div>
+   ${past.length?`<div class="ph" style="margin:18px 2px 8px"><div class="t" style="font-size:13px;color:var(--muted)">지난 일정</div></div><div class="panel" style="opacity:.7">${past.slice(0,10).map(schedRow).join('')}</div>`:''}`;
+ }
+ if(!calYM)calYM=t.slice(0,7);
+ const [y,m]=calYM.split('-').map(Number);
+ const first=new Date(y,m-1,1), start=new Date(y,m-1,1-first.getDay());
+ const byDate={};DB.schedule.forEach(s=>{(byDate[s.date]=byDate[s.date]||[]).push(s);});
+ let cells='';
+ for(let i=0;i<42;i++){
+  const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);
+  const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const evs=(byDate[ds]||[]).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  const other=d.getMonth()!==m-1;
+  cells+=`<div class="cald ${other?'other':''} ${ds===t?'today':''} ${ds===calSel?'sel':''} ${d.getDay()===0?'sun':''}" onclick="calPick('${ds}')">
+   <span class="dn">${d.getDate()}</span>
+   ${evs.slice(0,3).map(e=>`<div class="calev ${ds<t?'past':''}">${e.time?esc(e.time)+' ':''}${esc(e.title)}</div>`).join('')}
+   ${evs.length>3?`<div class="calmore">+${evs.length-3}</div>`:''}
+   <div class="dots">${evs.slice(0,4).map(()=>'<i></i>').join('')}</div>
+  </div>`;
+ }
+ const selEvs=calSel?(byDate[calSel]||[]):[];
+ return `<div class="calhead">
+   <button class="nav" onclick="calMove(-1)">‹</button><span class="cm">${y}년 ${m}월</span><button class="nav" onclick="calMove(1)">›</button>
+   <button class="btn gh sm" onclick="calYM='${t.slice(0,7)}';calSel='${t}';render()">오늘</button>
+   <div class="vtog"><button onclick="setSchedMode('list')">목록</button><button class="on" onclick="setSchedMode('cal')">달력</button></div>
+   <button class="btn sm" onclick="addMeeting(calSel)">＋ 일정 등록</button>
+  </div>
+  <div class="calwk"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+  <div class="cal">${cells}</div>
+  ${calSel?`<div class="panel" style="margin-top:14px"><div class="ph"><div class="t">${calSel} 일정 ${selEvs.length}건</div><button class="btn gh sm" onclick="addMeeting('${calSel}')">＋ 이 날짜로 등록</button></div>
+   ${selEvs.length?selEvs.map(schedRow).join(''):'<div class="empty">이 날은 일정이 없어요</div>'}</div>`:''}`;
 }
-function addMeeting(){openModal(`<h3>일정 등록</h3>
+function addMeeting(dt){openModal(`<h3>일정 등록</h3>
  <div class="f"><label>내용</label><input id="mt_title" placeholder="예: 봉천 치킨집 실측 방문"></div>
- <div class="f2"><div class="f"><label>날짜</label><input id="mt_date" type="date" value="${todayStr()}"></div><div class="f"><label>시간 (선택)</label><input id="mt_time" type="time"></div></div>
+ <div class="f2"><div class="f"><label>날짜</label><input id="mt_date" type="date" value="${(typeof dt==='string'&&dt)?dt:todayStr()}"></div><div class="f"><label>시간 (선택)</label><input id="mt_time" type="time"></div></div>
  <div class="f2"><div class="f"><label>상대/현장 (선택)</label><input id="mt_with" placeholder="이성원 대표"></div><div class="f"><label>메모 (선택)</label><input id="mt_memo"></div></div>
  <div class="f2"><div class="f"><label>주소 (선택) — 누르면 지도</label><input id="mt_addr" placeholder="예: 관악구 봉천동 123-4"></div><div class="f"><label>전화번호 (선택) — 누르면 전화</label><input id="mt_phone" inputmode="tel" placeholder="010-0000-0000"></div></div>
  <div class="mact"><button class="btn gh" onclick="closeModal()">취소</button><button class="btn" onclick="createMeeting()">등록</button></div>`);}
