@@ -169,7 +169,10 @@ dialog h3{font-size:16px;margin-bottom:10px;}
         <button class="expbtn pri" onclick="exportJPG()">JPG 저장</button>
         <button class="expbtn pri" onclick="exportXLSX()">엑셀 저장</button>
       </div>
-      <button class="expbtn" onclick="saveAs()">저장목록에 저장</button>
+      <div class="exprow" style="margin-top:8px">
+        <button class="expbtn" onclick="document.getElementById('xlsxIn').click()">엑셀 불러오기</button>
+        <button class="expbtn" onclick="saveAs()">저장목록에 저장</button>
+      </div>
       <div class="note">아래 3장이 저장됩니다 — 폰은 저장 시 뜨는 공유창에서 ‘이미지 저장’ → 사진 앱에 들어가요</div>
       <div class="sheetlabel">1. 갑지</div>
       <div class="sheetwrap"><div class="sheet" id="sheetGap"></div></div>
@@ -197,6 +200,7 @@ dialog h3{font-size:16px;margin-bottom:10px;}
 </dialog>
 
 <div class="toast" id="toast"></div>
+<input type="file" id="xlsxIn" accept=".xlsx" style="display:none" onchange="if(this.files[0])importXLSX(this.files[0]);this.value='';">
 <div class="busy" id="busy">파일 만드는 중…</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -673,6 +677,47 @@ async function exportXLSX(){
     a.click();
     toast("엑셀 저장 완료");
   }catch(e){toast("오류: "+e.message);console.error(e);}
+  $("busy").style.display="none";
+}
+
+/* ---------- XLSX import (자체 엑셀 양식 다시 읽기) ---------- */
+async function importXLSX(file){
+  $("busy").style.display="flex";
+  try{
+    const wb=new ExcelJS.Workbook();
+    await wb.xlsx.load(await file.arrayBuffer());
+    const dt=wb.getWorksheet('내부내역')||wb.worksheets.find(w=>/내역/.test(w.name));
+    if(!dt)throw new Error("'내부내역' 시트가 없어요");
+    const cv=c=>{let v=c?c.value:null;if(v==null)return '';
+      if(typeof v==='object'){if(v.result!=null)v=v.result;else if(v.richText)v=v.richText.map(t=>t.text).join('');else if(v.text!=null)v=v.text;else return '';}
+      return v;};
+    const st=defaultState();st.sections=[];let cur=null;
+    dt.eachRow((row,rn)=>{
+      if(rn<4)return;
+      const no=cv(row.getCell(1));
+      const name=String(cv(row.getCell(2))||'').trim();
+      if(no!==''&&name){cur={name:name,items:[]};st.sections.push(cur);return;}
+      if(!cur)return;
+      if(/^소\s*계$|^총\s*계$/.test(name))return;
+      const qty=cv(row.getCell(5)),mat=cv(row.getCell(6)),lab=cv(row.getCell(8));
+      if(name===''&&qty===''&&mat===''&&lab==='')return;
+      cur.items.push({name:name,spec:String(cv(row.getCell(3))||''),unit:String(cv(row.getCell(4))||''),
+        qty:qty===''?'':String(qty),mat:mat===''?'':String(mat),lab:lab===''?'':String(lab)});
+    });
+    st.sections=st.sections.filter(s=>s.items.length);
+    if(!st.sections.length)throw new Error('공종/품목을 찾지 못했어요');
+    const g=wb.getWorksheet('갑지');
+    if(g){
+      const after=(s)=>{const i=String(s||'').indexOf(':');return i>-1?String(s).slice(i+1).trim():'';};
+      const t=after(cv(g.getRow(1).getCell(4)));if(t)st.title=t;
+      const c2=after(cv(g.getRow(3).getCell(1)));if(c2)st.client=c2;
+      const dm=String(cv(g.getRow(3).getCell(5))||'').match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
+      if(dm)st.date=dm[1]+'-'+dm[2].padStart(2,'0')+'-'+dm[3].padStart(2,'0');
+      const tm=after(cv(g.getRow(11).getCell(1)));if(tm)st.terms=tm;
+    }
+    state=st;pushForm();renderSections();touch();goStep(4);
+    toast('엑셀 불러오기 완료 — 미리보기 확인 후 JPG 저장하세요');
+  }catch(e){toast('불러오기 실패: '+e.message);console.error(e);}
   $("busy").style.display="none";
 }
 
