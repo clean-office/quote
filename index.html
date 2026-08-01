@@ -802,7 +802,7 @@ function newQuote(){if(!confirm("새 견적을 시작할까요? (현재 내용�
   state=defaultState();pushForm();renderSections();updateSummary();autosave();goStep(1);}
 function saveAs(){pullForm();
   const nm=prompt("저장 이름",state.title||"견적");if(!nm)return;
-  saveNamed(nm);toast("저장 완료");}
+  saveNamed(nm);toast(_cloud&&_cloud.url?"저장 완료 — 클라우드 동기화됨":"저장 완료 (이 기기에만) — 폰·PC 같이 보려면 허브 설정에서 클라우드 연결");}
 function saveNamed(nm){
   const all=JSON.parse(localStorage.getItem("mdl_saves")||"{}");
   all[nm]={t:Date.now(),data:state};
