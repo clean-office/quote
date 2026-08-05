@@ -536,7 +536,8 @@ const SITE_COLORS=['#2456c4','#0f7a4e','#c0512f','#6d3fc0','#0f7a80','#b0308a','
 function colorFor(site){if(!site)return '#b4b4b8';let x=0;for(let i=0;i<site.length;i++)x=(x*31+site.charCodeAt(i))>>>0;return SITE_COLORS[x%SITE_COLORS.length];}
 function siteShort(s){if(!s)return '';const t=String(s).trim().split(/\s+/)[0];return t.length>6?t.slice(0,6):t;}
 function schedTitle(s){return s.title||((s.site&&s.proc)?s.site+' — '+s.proc:(s.site||s.proc||'일정'));}
-function siteNames(){const arr=[];DB.sites.forEach(s=>{if(s.name&&!arr.includes(s.name))arr.push(s.name);});try{estList().forEach(e=>{if(!arr.includes(e.k))arr.push(e.k);});}catch(e){}return arr;}
+function projBase(n){return (n||'').replace(/\s*v\d+\s*$/i,'').replace(/\s*\(\d{4}-\d{2}-\d{2}\)\s*$/,'').replace(/\s*\(\uBC31\uC5C5\)\s*$/,'').trim()||n;}
+function siteNames(){const arr=[];DB.sites.forEach(s=>{if(s.name&&!arr.includes(s.name))arr.push(s.name);});try{estList().forEach(e=>{const b=projBase(e.k);if(b&&!arr.includes(b))arr.push(b);});}catch(e){}return arr;}
 function addrLink(a){return a?` · <a href="https://map.kakao.com/link/search/${encodeURIComponent(a)}" target="_blank" onclick="event.stopPropagation()" style="color:var(--blue);text-decoration:underline">📍${esc(a)}</a>`:'';}
 function phoneLink(p){return p?` · <a href="tel:${esc(String(p).replace(/[^\d+]/g,''))}" onclick="event.stopPropagation()" style="color:var(--good);text-decoration:underline;font-weight:700">📞${esc(p)}</a>`:'';}
 function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
