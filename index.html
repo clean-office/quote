@@ -761,10 +761,13 @@ function importText(){
 }
 
 /* ---------- storage ---------- */
-function autosave(){localStorage.setItem("mdl_draft",JSON.stringify(state));cloudPushEstimates();}
+function autosave(){localStorage.setItem("mdl_draft",JSON.stringify(state));}
 /* 저장목록 클라우드 동기화 (관리앱과 같은 mdl_cloud 설정 공유) */
-const _cloud=(()=>{try{return JSON.parse(localStorage.getItem('mdl_cloud'));}catch(e){return null;}})();
-let _cloudTimer=null;
+function _cf(){try{return JSON.parse(localStorage.getItem('mdl_cloud'));}catch(e){return null;}}
+let _cloud=_cf(),_cloudTimer=null;
+const DELK='mdl_saves_del';
+function _delMap(){try{return JSON.parse(localStorage.getItem(DELK)||'{}');}catch(e){return {};}}
+function _applyDel(map,del){Object.keys(del||{}).forEach(k=>{if(map[k]&&(map[k].t||0)<=del[k])delete map[k];});return map;}
 function _sbh(){return {apikey:_cloud.key,Authorization:'Bearer '+_cloud.key,'Content-Type':'application/json'};}
 function cloudPushEstimates(){
   if(!_cloud||!_cloud.url||!_cloud.key)return;
@@ -772,13 +775,16 @@ function cloudPushEstimates(){
   _cloudTimer=setTimeout(async()=>{
     try{
       const local=JSON.parse(localStorage.getItem('mdl_saves')||'{}');
-      let remote={};
+      let remote={},rdel={};
       try{const r=await fetch(_cloud.url+'/rest/v1/moredo_state?id=eq.estimates&select=data',{headers:_sbh()});
-        if(r.ok){const rows=await r.json();remote=(rows[0]&&rows[0].data&&rows[0].data.saves)||{};}}catch(e){}
+        if(r.ok){const rows=await r.json();const rd=rows[0]&&rows[0].data;remote=(rd&&rd.saves)||{};rdel=(rd&&rd.del)||{};}}catch(e){}
+      const del={...rdel,...(_delMap())};
+      localStorage.setItem(DELK,JSON.stringify(del));
       const merged={...remote};
       Object.keys(local).forEach(k=>{if(!merged[k]||(local[k].t||0)>=(merged[k].t||0))merged[k]=local[k];});
+      _applyDel(merged,del);
       localStorage.setItem('mdl_saves',JSON.stringify(merged));
-      const payload={saves:merged,draft:JSON.parse(localStorage.getItem('mdl_draft')||'null'),_ts:Date.now()};
+      const payload={saves:merged,del,draft:JSON.parse(localStorage.getItem('mdl_draft')||'null'),_ts:Date.now()};
       await fetch(_cloud.url+'/rest/v1/moredo_state',{method:'POST',headers:{..._sbh(),Prefer:'resolution=merge-duplicates'},body:JSON.stringify([{id:'estimates',data:payload,updated_at:new Date().toISOString()}])});
     }catch(e){}
   },700);
@@ -791,8 +797,11 @@ async function cloudPullEstimates(){
     const rows=await r.json();const rd=rows[0]&&rows[0].data;
     if(rd&&rd.saves){
       const local=JSON.parse(localStorage.getItem('mdl_saves')||'{}');
+      const del={...(rd.del||{}),...(_delMap())};
+      localStorage.setItem(DELK,JSON.stringify(del));
       const merged={...rd.saves};
       Object.keys(local).forEach(k=>{if(!merged[k]||(local[k].t||0)>(merged[k].t||0))merged[k]=local[k];});
+      _applyDel(merged,del);
       localStorage.setItem('mdl_saves',JSON.stringify(merged));
     }
   }catch(e){}
@@ -804,14 +813,36 @@ function saveAs(){pullForm();
   const nm=prompt("저장 이름",state.title||"견적");if(!nm)return;
   saveNamed(nm);toast(_cloud&&_cloud.url?"저장 완료 — 클라우드 동기화됨":"저장 완료 (이 기기에만) — 폰·PC 같이 보려면 허브 설정에서 클라우드 연결");}
 function saveNamed(nm){
+  _cloud=_cf();
   const all=JSON.parse(localStorage.getItem("mdl_saves")||"{}");
-  all[nm]={t:Date.now(),data:state};
+  all[nm]={t:Date.now(),data:JSON.parse(JSON.stringify(state))};
+  const del=_delMap();delete del[nm];localStorage.setItem(DELK,JSON.stringify(del));
   localStorage.setItem("mdl_saves",JSON.stringify(all));cloudPushEstimates();}
+function loadNamed(nm){
+  const all=JSON.parse(localStorage.getItem("mdl_saves")||"{}");
+  const e=all[nm];
+  if(!e||!e.data){toast('저장된 견적을 찾지 못했어요: '+nm);return false;}
+  state=JSON.parse(JSON.stringify(e.data));
+  if(!state.sections||!state.sections.length)state.sections=[blankSection()];
+  pushForm();renderSections();updateSummary();autosave();goStep(1);
+  toast('"'+nm+'" 불러왔습니다');return true;}
 function openSaves(){
-  cloudPullEstimates().then(()=>{if($("dlgSaves").open)renderSaveList();});
-  renderSaveList();
+  _cloud=_cf();
+  const ul=$("saveList");
   $("dlgSaves").showModal();
+  if(_cloud&&_cloud.url){
+    ul.innerHTML="<li class='nm' style='color:#999'>동기화 중…</li>";
+    Promise.race([cloudPullEstimates(),new Promise(r=>setTimeout(r,4000))]).then(()=>{if($("dlgSaves").open)renderSaveList();});
+  } else renderSaveList();
 }
+function savTotal(st){
+  if(!st||!Array.isArray(st.sections))return 0;
+  const nv=v=>{const n=parseFloat(String(v??"").replace(/[^\d.\-]/g,""));return isNaN(n)?0:n;};
+  let d=0;st.sections.forEach(s=>(s.items||[]).forEach(it=>{const q=nv(it.qty);d+=q*nv(it.mat)+q*nv(it.lab);}));
+  const ind=Math.round(d*(nv(st.r1)||0)/100)+Math.round(d*(nv(st.r2)||0)/100)+Math.round(d*(nv(st.r3)||0)/100);
+  const raw=d+ind,tgt=nv(st.target);
+  const cut=(st.target!==""&&st.target!=null&&tgt>0)?raw-tgt:raw%10000;
+  return raw-cut;}
 function projBase(n){return (n||"").replace(/\s*v\d+\s*$/i,"").replace(/\s*\(\d{4}-\d{2}-\d{2}\)\s*$/,"").replace(/\s*\(백업\)\s*$/,"").trim()||n;}
 function renderSaveList(){
   const all=JSON.parse(localStorage.getItem("mdl_saves")||"{}");
@@ -830,11 +861,11 @@ function renderSaveList(){
     ul.appendChild(hd);
     items.forEach(k=>{
       const li=document.createElement("li");li.style.paddingLeft="10px";
-      const label=(k===g)?new Date(all[k].t).toLocaleDateString("ko-KR"):esc(k);
-      li.innerHTML=`<span class="nm">${label}<br><small style="color:#999">${new Date(all[k].t).toLocaleString("ko-KR")}</small></span>
+      const amt=savTotal(all[k].data);
+      li.innerHTML=`<span class="nm">${esc(k)}<br><small style="color:#999">${new Date(all[k].t).toLocaleString("ko-KR")} · ${amt.toLocaleString("ko-KR")}원</small></span>
       <button class="open">열기</button><button class="del">삭제</button>`;
-      li.children[1].onclick=()=>{state=all[k].data;if(!state.sections||!state.sections.length)state.sections=[blankSection()];pushForm();renderSections();updateSummary();autosave();$("dlgSaves").close();goStep(1);toast("불러왔습니다");};
-      li.children[2].onclick=()=>{if(confirm("삭제할까요?")){delete all[k];localStorage.setItem("mdl_saves",JSON.stringify(all));cloudPushEstimates();renderSaveList();}};
+      li.children[1].onclick=()=>{if(loadNamed(k))$("dlgSaves").close();};
+      li.children[2].onclick=()=>{if(confirm(`"${k}" 견적을 삭제할까요?`)){const cur=JSON.parse(localStorage.getItem("mdl_saves")||"{}");delete cur[k];localStorage.setItem("mdl_saves",JSON.stringify(cur));const d=_delMap();d[k]=Date.now();localStorage.setItem(DELK,JSON.stringify(d));_cloud=_cf();cloudPushEstimates();renderSaveList();}};
       ul.appendChild(li);
     });
   });
@@ -858,7 +889,11 @@ function importDictPicks(){
 }
 /* ---------- init ---------- */
 (function(){
-  cloudPullEstimates();
+  const _openName=new URLSearchParams(location.search).get('open');
+  cloudPullEstimates().then(()=>{
+    if(!_openName)return;
+    if(loadNamed(_openName))history.replaceState(null,'',location.pathname);
+  });
   const saved=localStorage.getItem("mdl_draft");
   state=saved?JSON.parse(saved):defaultState();
   if(!state.sections||!state.sections.length)state.sections=[blankSection()];

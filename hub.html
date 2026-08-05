@@ -296,7 +296,7 @@ const MTAB=['home','schedule','sales','sites','settle'];
 const KEY='mdl_hub_v1';
 let DB=null;
 function seed(){return {
- seeded:true,
+ seeded:true,_fresh:true,_ts:0,
  sites:[
   {id:uid(),name:'역삼 사무실 리모델링',client:'이정훈 대표',phone:'010-2345-6789',addr:'강남구 역삼동 ○○빌딩 4F',amount:38500000,status:'construction',progress:60,end:'2026-07-28',pay:{d:true,m:false,f:false},cmonth:'2026-07'},
   {id:uid(),name:'봉천 치킨배달전문점',client:'이성원 실장',phone:'',addr:'관악구 봉천동',amount:1020000,status:'contract',progress:20,end:'',pay:{d:false,m:false,f:false},cmonth:'2026-07'},
@@ -328,11 +328,27 @@ function seed(){return {
   {id:uid(),date:'2026-07-24',time:'',title:'봉천 치킨집 착공',with:'',memo:''}
  ]
 };}
+const COLLS=['sites','sales','customers','dict','tasks','schedule'];
+function normalizeDB(){COLLS.forEach(k=>{if(!Array.isArray(DB[k]))DB[k]=[];});
+ if(!DB.pipe||typeof DB.pipe!=='object'||Array.isArray(DB.pipe))DB.pipe={};
+ if(!DB._del||typeof DB._del!=='object'||Array.isArray(DB._del))DB._del={};}
 function load(){try{DB=JSON.parse(localStorage.getItem(KEY));}catch(e){DB=null;}
- if(!DB||!DB.seeded){DB=seed();save();}
- ['sites','sales','customers','dict','tasks','schedule'].forEach(k=>{if(!Array.isArray(DB[k]))DB[k]=[];});
- if(!DB.pipe||typeof DB.pipe!=='object'||Array.isArray(DB.pipe))DB.pipe={};}
-function save(){DB._ts=Date.now();localStorage.setItem(KEY,JSON.stringify(DB));localStorage.setItem(KEY+'_bak',JSON.stringify({t:DB._ts,data:DB}));cloudPush();}
+ if(!DB||!DB.seeded){DB=seed();localStorage.setItem(KEY,JSON.stringify(DB));}
+ normalizeDB();}
+function save(){DB._ts=Date.now();delete DB._fresh;normalizeDB();localStorage.setItem(KEY,JSON.stringify(DB));localStorage.setItem(KEY+'_bak',JSON.stringify({t:DB._ts,data:DB}));cloudPush();}
+function tomb(id){DB._del=DB._del||{};DB._del[id]=Date.now();}
+function mergeDB(remote){
+ const rt=remote._ts||0,lt=DB._ts||0,localNewer=lt>=rt;
+ const del={...(remote._del||{}),...(DB._del||{})};
+ const out=localNewer?{...remote,...DB}:{...DB,...remote};
+ COLLS.forEach(k=>{
+  const a=Array.isArray(DB[k])?DB[k]:[],b=Array.isArray(remote[k])?remote[k]:[];
+  const m={};(localNewer?b:a).forEach(z=>{if(z&&z.id)m[z.id]=z;});(localNewer?a:b).forEach(z=>{if(z&&z.id)m[z.id]=z;});
+  Object.keys(del).forEach(id=>{delete m[id];});
+  out[k]=Object.values(m);
+ });
+ out.pipe=localNewer?{...(remote.pipe||{}),...(DB.pipe||{})}:{...(DB.pipe||{}),...(remote.pipe||{})};
+ out._del=del;out._ts=Math.max(lt,rt);out.seeded=true;delete out._fresh;return out;}
 
 /* ---------- cloud sync (Supabase, single-row JSON) ---------- */
 const CLOUD_KEY='mdl_cloud';
@@ -352,15 +368,24 @@ async function cloudUpsert(){
 }
 function cloudPush(){
  if(!cloud)return;clearTimeout(cloudTimer);
- cloudTimer=setTimeout(async()=>{try{cloudStatus='sync';paintCloud();await cloudUpsert();cloudStatus='ok';}catch(e){cloudStatus='error';}paintCloud();},600);
+ cloudTimer=setTimeout(async()=>{
+  cloudStatus='sync';paintCloud();
+  for(let i=0;i<3;i++){
+   try{await cloudUpsert();cloudStatus='ok';paintCloud();return;}
+   catch(e){await new Promise(r=>setTimeout(r,900*(i+1)));}
+  }
+  cloudStatus='error';paintCloud();
+ },600);
 }
 async function cloudPullMerge(){
  if(!cloud)return;
  try{const row=await cloudFetch();
-  if(row&&row.data){const remote=row.data;const rt=remote._ts||0,lt=DB._ts||0;
-   if(rt>lt){DB=remote;['sites','sales','customers','dict','tasks','schedule'].forEach(k=>{if(!Array.isArray(DB[k]))DB[k]=[];});localStorage.setItem(KEY,JSON.stringify(DB));}
-   else if(lt>rt){await cloudUpsert();}
-  } else {await cloudUpsert();}
+  if(row&&row.data){
+   const remote=row.data,before=JSON.stringify(DB);
+   DB=(DB&&DB._fresh)?remote:mergeDB(remote);
+   normalizeDB();
+   if(JSON.stringify(DB)!==before){localStorage.setItem(KEY,JSON.stringify(DB));await cloudUpsert();render();}
+  } else if(!(DB&&DB._fresh)){await cloudUpsert();}
   cloudStatus='ok';
  }catch(e){cloudStatus=e.message==='table'?'notable':'error';}
  paintCloud();
@@ -410,6 +435,7 @@ function estMonthStats(){
  return {cnt,sum};
 }
 function pipeStage(k){return (DB.pipe&&DB.pipe[k])||'sent';}
+function openEst(k){location.href='./index.html?open='+encodeURIComponent(k);}
 
 /* ---------- helpers ---------- */
 function uid(){return 'x'+Math.random().toString(36).slice(2,9);}
@@ -497,7 +523,7 @@ function viewHome(){
  </div>`;
 }
 function estRow(e){const stg=STAGES.find(x=>x[0]===pipeStage(e.k))||STAGES[0];
- return `<div class="rowitem"><div class="savatar"><svg viewBox="0 0 24 24">${IC.quote}</svg></div>
+ return `<div class="rowitem" data-est="${esc(e.k)}" onclick="openEst(this.dataset.est)" style="cursor:pointer"><div class="savatar"><svg viewBox="0 0 24 24">${IC.quote}</svg></div>
  <div class="info"><div class="nm">${esc(e.k)}</div><div class="mt">${esc(e.st.date||new Date(e.t).toLocaleDateString('ko-KR'))}${e.st.client?' · '+esc(e.st.client):''}</div></div>
  <div style="text-align:right"><div class="pv tnum" style="font-size:15px;font-weight:800">${won(e.total)}</div><span class="schip sc-est" style="margin-top:4px">${stg[1]}</span></div></div>`;}
 function siteRow(s){const st=STAT[s.status]||STAT.lead;return `<div class="rowitem" onclick="openSite('${s.id}')" style="cursor:pointer">
@@ -623,7 +649,7 @@ function saveSite(id){const s=DB.sites.find(x=>x.id===id);if(!s)return;
  s.progress=Math.min(100,parseInt($('m_prog').value)||0);s.end=$('m_end').value;
  document.querySelectorAll('#modal .tick').forEach(t=>{s.pay[t.dataset.k]=t.classList.contains('on');});
  save();closeModal();render();toast('저장됨');}
-function delSite(id){if(!confirm('현장을 삭제할까요?'))return;DB.sites=DB.sites.filter(x=>x.id!==id);save();closeModal();render();}
+function delSite(id){if(!confirm('현장을 삭제할까요?'))return;DB.sites=DB.sites.filter(x=>x.id!==id);tomb(id);save();closeModal();render();}
 function addSite(){openModal(`<h3>현장 등록</h3>
  <div class="f"><label>현장명</label><input id="n_name" placeholder="예: 역삼 사무실 리모델링"></div>
  <div class="f2"><div class="f"><label>고객</label><input id="n_client"></div><div class="f"><label>계약금액(원)</label><input id="n_amount" inputmode="numeric" placeholder="0"></div></div>
@@ -694,7 +720,7 @@ function viewQuotes(){
   </div>
   ${draft&&draft.title?`<div class="panel" style="margin-bottom:16px"><div class="ph"><div class="t">작성 중인 견적</div><a class="lnk" href="./index.html">이어서 →</a></div><div class="rowitem" style="border:none"><div class="info"><div class="nm">${esc(draft.title)}</div><div class="mt">${esc(draft.client||'')}</div></div></div></div>`:''}
   <div class="panel"><div class="ph"><div class="t">저장한 견적</div><div class="subttl">${list.length}건 · 합계 ${man(list.reduce((a,e)=>a+e.total,0))}원</div></div>
-   ${list.length?list.map(e=>`<div class="rowitem"><div class="savatar"><svg viewBox="0 0 24 24">${IC.quote}</svg></div><div class="info"><div class="nm">${esc(e.k)}</div><div class="mt">${esc(e.st.date||new Date(e.t).toLocaleDateString('ko-KR'))}${e.st.client?' · '+esc(e.st.client):''}</div></div><div style="text-align:right;margin-right:6px"><div class="pv tnum" style="font-size:15px;font-weight:800">${won(e.total)}</div><span class="schip sc-est" style="margin-top:3px">${(STAGES.find(x=>x[0]===pipeStage(e.k))||STAGES[0])[1]}</span></div><button class="btn gh sm" onclick="location.href='./index.html'">열기</button></div>`).join(''):'<div class="empty">저장된 견적이 없어요 — 견적서를 만들어 저장해보세요</div>'}
+   ${list.length?list.map(e=>`<div class="rowitem"><div class="savatar"><svg viewBox="0 0 24 24">${IC.quote}</svg></div><div class="info"><div class="nm">${esc(e.k)}</div><div class="mt">${esc(e.st.date||new Date(e.t).toLocaleDateString('ko-KR'))}${e.st.client?' · '+esc(e.st.client):''}</div></div><div style="text-align:right;margin-right:6px"><div class="pv tnum" style="font-size:15px;font-weight:800">${won(e.total)}</div><span class="schip sc-est" style="margin-top:3px">${(STAGES.find(x=>x[0]===pipeStage(e.k))||STAGES[0])[1]}</span></div><button class="btn gh sm" data-est="${esc(e.k)}" onclick="openEst(this.dataset.est)">열기</button></div>`).join(''):'<div class="empty">저장된 견적이 없어요 — 견적서를 만들어 저장해보세요</div>'}
   </div>`;
 }
 
@@ -738,7 +764,7 @@ function editSale(id){const s=DB.sales.find(x=>x.id===id);if(!s)return;openModal
  <div class="f2"><div class="f"><label>예상 금액(원)</label><input id="s_amount" inputmode="numeric" value="${s.amount||0}"></div><div class="f"><label>다음 일정/메모</label><input id="s_due" value="${esc(s.due||'')}"></div></div>
  <div class="mact"><button class="btn gh" onclick="delSale('${s.id}')">삭제</button><button class="btn" onclick="updateSale('${s.id}')">저장</button></div>`);}
 function updateSale(id){const s=DB.sales.find(x=>x.id===id);if(!s)return;s.name=$('s_name').value;s.amount=parseInt($('s_amount').value.replace(/\D/g,''))||0;s.due=$('s_due').value;save();closeModal();render();toast('저장됨');}
-function delSale(id){if(!confirm('이 영업 건을 삭제할까요?'))return;DB.sales=DB.sales.filter(x=>x.id!==id);save();closeModal();render();toast('삭제됨');}
+function delSale(id){if(!confirm('이 영업 건을 삭제할까요?'))return;DB.sales=DB.sales.filter(x=>x.id!==id);tomb(id);save();closeModal();render();toast('삭제됨');}
 
 /* ---------- SCHEDULE (미팅·일정) ---------- */
 let calYM=null;
@@ -830,7 +856,7 @@ function createMeeting(){
  let end=$('mt_end').value;if(end&&end<=d)end='';
  DB.schedule.push({id:uid(),kind:_mtKind,site,proc,date:d,end,time:$('mt_time').value,title:t,with:$('mt_with').value,memo:$('mt_memo').value,addr:$('mt_addr').value.trim(),phone:$('mt_phone').value.trim()});
  save();closeModal();render();toast('일정 등록됨');}
-function delMeeting(id){if(!confirm('이 일정을 삭제할까요?'))return;DB.schedule=DB.schedule.filter(x=>x.id!==id);save();render();toast('삭제됨');}
+function delMeeting(id){if(!confirm('이 일정을 삭제할까요?'))return;DB.schedule=DB.schedule.filter(x=>x.id!==id);tomb(id);save();render();toast('삭제됨');}
 
 /* ---------- modal ---------- */
 function openModal(html){$('modal').innerHTML=html;$('ov').classList.add('on');}
@@ -838,5 +864,6 @@ function closeModal(){$('ov').classList.remove('on');}
 
 /* ---------- init ---------- */
 load();loadCloud();loadEst();render();cloudPullMerge();estPull();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){cloudPullMerge();estPull();}});
 </script>
 </body></html>
