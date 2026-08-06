@@ -295,46 +295,34 @@ const MTAB=['home','schedule','sales','sites','settle'];
 /* ---------- data ---------- */
 const KEY='mdl_hub_v1';
 let DB=null;
-function seed(){return {
- seeded:true,_fresh:true,_ts:0,
- sites:[
-  {id:uid(),name:'역삼 사무실 리모델링',client:'이정훈 대표',phone:'010-2345-6789',addr:'강남구 역삼동 ○○빌딩 4F',amount:38500000,status:'construction',progress:60,end:'2026-07-28',pay:{d:true,m:false,f:false},cmonth:'2026-07'},
-  {id:uid(),name:'봉천 치킨배달전문점',client:'이성원 실장',phone:'',addr:'관악구 봉천동',amount:1020000,status:'contract',progress:20,end:'',pay:{d:false,m:false,f:false},cmonth:'2026-07'},
-  {id:uid(),name:'역삼 사무실 (1차)',client:'이정훈 대표',phone:'',addr:'',amount:40000000,status:'settle',progress:90,end:'2026-07-10',pay:{d:true,m:true,f:false},cmonth:'2026-06'},
-  {id:uid(),name:'강남 헤어샵',client:'박소연',phone:'',addr:'강남구',amount:56000000,status:'done',progress:100,end:'2026-06-20',pay:{d:true,m:true,f:true},cmonth:'2026-05'}
- ],
- sales:[
-  {id:uid(),name:'봉천 치킨배달전문점',amount:9500000,stage:'visit',client:'이성원 대표',due:'오늘 14:00'},
-  {id:uid(),name:'신림 미용실',amount:18000000,stage:'visit',client:'박○○',due:'7/22'},
-  {id:uid(),name:'서초 무인카페',amount:23400000,stage:'sent',client:'',due:'팔로업'},
-  {id:uid(),name:'방배 학원',amount:41000000,stage:'sent',client:'',due:'대기'},
-  {id:uid(),name:'논현 오피스',amount:28000000,stage:'contract',client:'',due:'7/21'}
- ],
- customers:[
-  {id:uid(),name:'이정훈 대표',phone:'010-2345-6789',memo:'역삼 사무실 2건'},
-  {id:uid(),name:'이성원 실장',phone:'',memo:'봉천 치킨집'}
- ],
- dict:[
-  {id:uid(),cat:'철거',name:'데크 철거',spec:'',unit:'식',mat:100000,lab:130000},
-  {id:uid(),cat:'철거',name:'벽체 철거',spec:'경량벽',unit:'㎡',mat:0,lab:18000},
-  {id:uid(),cat:'철거',name:'폐기물 처리',spec:'1톤',unit:'대',mat:250000,lab:0},
-  {id:uid(),cat:'목공',name:'석고보드 벽',spec:'양면',unit:'㎡',mat:12000,lab:22000},
-  {id:uid(),cat:'전기',name:'매입등 설치',spec:'LED 4인치',unit:'개',mat:8000,lab:6000}
- ],
- tasks:[],
- schedule:[
-  {id:uid(),date:'2026-07-19',time:'14:00',title:'봉천 치킨집 실측 방문',with:'이성원 대표',memo:''},
-  {id:uid(),date:'2026-07-22',time:'10:30',title:'신림 미용실 미팅',with:'박○○',memo:'견적 상담'},
-  {id:uid(),date:'2026-07-24',time:'',title:'봉천 치킨집 착공',with:'',memo:''}
- ]
-};}
+function seed(){return {seeded:true,_fresh:true,_ts:0,sites:[],sales:[],customers:[],dict:[],tasks:[],schedule:[],pipe:{},_del:{}};}
+/* 구버전이 만들어 둔 예시 데이터 서명 — 어느 기기에서 올라와도 자동 제거 */
+const SAMPLE_SIG={
+ sites:['역삼 사무실 리모델링|38500000','봉천 치킨배달전문점|1020000','역삼 사무실 (1차)|40000000','강남 헤어샵|56000000'],
+ sales:['봉천 치킨배달전문점|9500000','신림 미용실|18000000','서초 무인카페|23400000','방배 학원|41000000','논현 오피스|28000000'],
+ customers:['이정훈 대표|010-2345-6789','이성원 실장|'],
+ dict:['철거|데크 철거','철거|벽체 철거','철거|폐기물 처리','목공|석고보드 벽','전기|매입등 설치'],
+ schedule:['2026-07-19|봉천 치킨집 실측 방문','2026-07-22|신림 미용실 미팅','2026-07-24|봉천 치킨집 착공']
+};
+function sampleSig(k,o){
+ if(k==='sites'||k==='sales')return (o.name||'')+'|'+(o.amount||0);
+ if(k==='customers')return (o.name||'')+'|'+(o.phone||'');
+ if(k==='dict')return (o.cat||'')+'|'+(o.name||'');
+ if(k==='schedule')return (o.date||'')+'|'+(o.title||'');
+ return '';}
+function purgeSamples(){let n=0;
+ Object.keys(SAMPLE_SIG).forEach(k=>{const sig=SAMPLE_SIG[k],keep=[];
+  (DB[k]||[]).forEach(o=>{if(o&&sig.includes(sampleSig(k,o))){DB._del=DB._del||{};if(o.id)DB._del[o.id]=Date.now();n++;}else keep.push(o);});
+  DB[k]=keep;});
+ return n;}
 const COLLS=['sites','sales','customers','dict','tasks','schedule'];
 function normalizeDB(){COLLS.forEach(k=>{if(!Array.isArray(DB[k]))DB[k]=[];});
  if(!DB.pipe||typeof DB.pipe!=='object'||Array.isArray(DB.pipe))DB.pipe={};
- if(!DB._del||typeof DB._del!=='object'||Array.isArray(DB._del))DB._del={};}
+ if(!DB._del||typeof DB._del!=='object'||Array.isArray(DB._del))DB._del={};
+ return purgeSamples();}
 function load(){try{DB=JSON.parse(localStorage.getItem(KEY));}catch(e){DB=null;}
  if(!DB||!DB.seeded){DB=seed();localStorage.setItem(KEY,JSON.stringify(DB));}
- normalizeDB();}
+ if(normalizeDB()){delete DB._fresh;DB._ts=Date.now();localStorage.setItem(KEY,JSON.stringify(DB));cloudPush();}}
 function save(){DB._ts=Date.now();delete DB._fresh;normalizeDB();localStorage.setItem(KEY,JSON.stringify(DB));localStorage.setItem(KEY+'_bak',JSON.stringify({t:DB._ts,data:DB}));cloudPush();}
 function tomb(id){DB._del=DB._del||{};DB._del[id]=Date.now();}
 function mergeDB(remote){
@@ -747,7 +735,7 @@ create policy "anon all" on moredo_state for all using (true) with check (true);
   </div>
   <div class="panel" style="margin-top:16px"><div class="ph"><div class="t">예시 데이터</div></div>
    <p class="subttl" style="margin:6px 0 12px">지금은 시연용 예시 데이터가 들어있어요. 실제 사용 시작할 때 한 번 비우세요.</p>
-   <button class="btn gh" onclick="if(confirm('예시 데이터를 모두 지울까요? (되돌릴 수 없음)')){DB={seeded:true,sites:[],sales:[],customers:[],dict:[],tasks:[],schedule:[]};save();render();toast('비웠어요 — 새로 등록해보세요')}">예시 데이터 비우기</button>
+   <button class="btn gh" onclick="if(confirm('현장·영업·고객·단가·일정을 모두 지울까요? (되돌릴 수 없음)')){COLLS.forEach(k=>{(DB[k]||[]).forEach(o=>{if(o&&o.id)tomb(o.id);});DB[k]=[];});DB.pipe={};save();render();toast('비웠어요 — 새로 등록해보세요')}">데이터 전체 비우기</button>
   </div>`;
 }
 function doBackup(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='모두랩_백업_'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('백업 파일 저장됨');}
