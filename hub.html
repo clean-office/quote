@@ -322,7 +322,7 @@ function normalizeDB(){COLLS.forEach(k=>{if(!Array.isArray(DB[k]))DB[k]=[];});
  return purgeSamples();}
 function load(){try{DB=JSON.parse(localStorage.getItem(KEY));}catch(e){DB=null;}
  if(!DB||!DB.seeded){DB=seed();localStorage.setItem(KEY,JSON.stringify(DB));}
- if(normalizeDB()){delete DB._fresh;DB._ts=Date.now();localStorage.setItem(KEY,JSON.stringify(DB));cloudPush();}}
+ if(normalizeDB()){delete DB._fresh;DB._ts=Date.now();localStorage.setItem(KEY,JSON.stringify(DB));}}
 function save(){DB._ts=Date.now();delete DB._fresh;normalizeDB();localStorage.setItem(KEY,JSON.stringify(DB));localStorage.setItem(KEY+'_bak',JSON.stringify({t:DB._ts,data:DB}));cloudPush();}
 function tomb(id){DB._del=DB._del||{};DB._del[id]=Date.now();}
 function mergeDB(remote){
@@ -369,10 +369,12 @@ async function cloudPullMerge(){
  if(!cloud)return;
  try{const row=await cloudFetch();
   if(row&&row.data){
-   const remote=row.data,before=JSON.stringify(DB);
-   DB=(DB&&DB._fresh)?remote:mergeDB(remote);
+   const remote=row.data,remoteStr=JSON.stringify(remote),before=JSON.stringify(DB);
+   DB=(DB&&DB._fresh)?JSON.parse(remoteStr):mergeDB(remote);
    normalizeDB();
-   if(JSON.stringify(DB)!==before){localStorage.setItem(KEY,JSON.stringify(DB));await cloudUpsert();render();}
+   const after=JSON.stringify(DB);
+   if(after!==before){localStorage.setItem(KEY,JSON.stringify(DB));render();}
+   if(after!==remoteStr)await cloudUpsert();
   } else if(!(DB&&DB._fresh)){await cloudUpsert();}
   cloudStatus='ok';
  }catch(e){cloudStatus=e.message==='table'?'notable':'error';}
