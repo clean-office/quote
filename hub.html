@@ -204,6 +204,54 @@ input,textarea,select{font-family:inherit;font-size:15px;}
 
 /* schedule modal chips */
 .mrow{display:flex;gap:6px;flex-wrap:wrap;}
+
+/* ===== 지표 · 경과일 · 행동유도 (2026-08 리서치 반영) ===== */
+.stat{transition:box-shadow .16s ease,transform .16s ease;}
+.stat[onclick]:active{transform:scale(.985);}
+.stat.warn{border-color:rgba(201,138,18,.35);background:linear-gradient(180deg,#fffdf7,#fff);}
+.stat.warn .chipi{background:var(--warnBg);} .stat.warn .chipi svg{stroke:var(--warn);}
+.stat.warn .val{color:#8a5d05;}
+.stat .foot b{color:var(--ink);font-weight:800;}
+.dl{display:inline-flex;align-items:center;gap:3px;margin-left:7px;font-weight:800;font-size:11px;letter-spacing:-.01em;}
+.dl i{font-style:normal;font-weight:600;color:var(--muted);font-size:10.5px;}
+.dl.up{color:var(--good);} .dl.down{color:var(--bad);} .dl.flat{color:var(--muted);font-weight:600;}
+.stat.accent .dl i{color:#9a9aa0;}
+
+/* 오래 답 없는 견적 — 홈 상단 넛지 */
+.nudge{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);
+ border-left:3px solid var(--warn);border-radius:14px;padding:14px 16px;margin:14px 0 2px;cursor:pointer;
+ box-shadow:var(--sh);transition:transform .16s ease;}
+.nudge:active{transform:scale(.99);}
+.nudge .nb{flex-shrink:0;width:42px;height:42px;border-radius:12px;background:var(--warnBg);color:#8a5d05;
+ display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;}
+.nudge b{font-size:14.5px;font-weight:800;} .nudge .txt{flex:1;min-width:0;font-size:14px;line-height:1.5;}
+.nudge span{display:block;color:var(--muted);font-size:12.5px;margin-top:2px;}
+.nudge .go{flex-shrink:0;color:var(--ink2);font-size:13px;font-weight:700;}
+
+/* 경과일 배지 */
+.age{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);font-size:11.5px;font-weight:700;color:var(--muted);
+ font-variant-numeric:tabular-nums;}
+.age.warm{color:var(--warn);} .age.hot{color:var(--bad);}
+.agemini{margin-top:4px;font-size:11px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums;}
+.agemini.warm{color:var(--warn);} .agemini.hot{color:var(--bad);}
+.kc.hotcard{border-left-color:var(--bad);}
+
+/* 디테일 다듬기 */
+.tnum,.val,.pv,.a{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1;}
+.kc{transition:box-shadow .16s ease,transform .16s ease;}
+.kc:hover{box-shadow:0 2px 6px rgba(36,31,23,.09);}
+.rowitem{transition:background .14s ease;border-radius:10px;}
+.rowitem:hover{background:var(--goldFaint);}
+.empty{line-height:1.7;}
+.empty b{display:block;color:var(--ink2);font-weight:700;margin-bottom:3px;font-size:14px;}
+.btn:active{transform:scale(.97);} .btn{transition:transform .12s ease,opacity .12s ease;}
+@media(max-width:860px){
+  /* 현장에서 한손·장갑 — 터치 타깃 최소 44px (NN/g) */
+  .btn,.btn.sm{min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
+  .mchip{min-height:42px;}
+  .rowitem button{min-height:40px;}
+  .nudge{padding:15px;}
+}
 .vbadge{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:20px;background:var(--goldFaint);
  color:var(--gold);font-size:10.5px;font-weight:800;vertical-align:middle;letter-spacing:.02em}
 .suglist{position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--line);
@@ -432,6 +480,31 @@ function estMonthStats(){
  return {cnt,sum};
 }
 function pipeStage(k){return (DB.pipe&&DB.pipe[k])||'sent';}
+/* 견적 발송 후 며칠 지났나 (견적일자 기준, 없으면 저장시각) */
+function daysSince(e){
+ const d=(e.st&&e.st.date)?new Date(e.st.date+'T00:00:00'):new Date(e.t);
+ const t=new Date(); t.setHours(0,0,0,0);
+ return Math.max(0,Math.round((t-d)/86400000));
+}
+/* 아직 답 없는 견적 = 단계가 '견적 발송'에 머물러 있는 건 */
+function pendingEst(){
+ return estGroups().filter(g=>gStage(g)==='sent').map(g=>Object.assign({},g,{days:daysSince(g.latest)}))
+        .sort((a,b)=>b.days-a.days);
+}
+function estMonthOf(ym){
+ let cnt=0,sum=0;
+ estGroups().forEach(g=>{const e=g.latest;const d=(e.st&&e.st.date)||new Date(e.t).toISOString().slice(0,10);
+  if(String(d).slice(0,7)===ym){cnt++;sum+=g.total;}});
+ return {cnt,sum};
+}
+function prevYM(){const n=new Date();const d=new Date(n.getFullYear(),n.getMonth()-1,1);
+ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function delta(cur,prev){
+ if(!prev)return '';
+ const p=Math.round((cur-prev)/prev*100);
+ if(!isFinite(p)||p===0)return '<span class="dl flat">전월과 같음</span>';
+ return `<span class="dl ${p>0?'up':'down'}">${p>0?'▲':'▼'} ${Math.abs(p)}% <i>전월 대비</i></span>`;
+}
 /* 같은 현장의 '수정 1', '(백업)' 같은 버전들을 하나로 묶는다 */
 function estGroups(){
  const g={};
@@ -495,17 +568,23 @@ function cloudBanner(){
 function viewHome(){
  const c=calc();
  const chart=monthChart();
- const em=estMonthStats();
+ const em=estMonthStats(), pend=pendingEst();
+ const mb=chart.bars, thisM=mb[mb.length-1]?mb[mb.length-1].v:0, prevM=mb[mb.length-2]?mb[mb.length-2].v:0;
  const recentEst=estGroups().slice(0,4).map(g=>Object.assign({},g.latest,{k:g.base,_v:g.versions.length,_total:g.total}));
  const active=DB.sites.filter(s=>ACTIVE.includes(s.status));
  const recvSites=DB.sites.map(s=>({s,u:unpaid(s)})).filter(x=>x.u>0).sort((a,b)=>b.u-a.u).slice(0,3);
  return cloudBanner()+`
  <div class="stats">
-  <div class="stat"><div class="cap">이번달 견적<span class="chipi"><svg viewBox="0 0 24 24">${IC.quote}</svg></span></div><div class="val tnum">${em.cnt}<small>건</small></div><div class="foot">총 ${man(em.sum)}원 · 저장목록 자동</div></div>
-  <div class="stat"><div class="cap">계약 수주액<span class="chipi"><svg viewBox="0 0 24 24">${IC.settle}</svg></span></div><div class="val tnum">${man(c.contracted)}<small>원</small></div><div class="foot">계약 ${c.contractCnt}건</div></div>
-  <div class="stat accent"><div class="cap">받을 돈 · 미수금<span class="chipi"><svg viewBox="0 0 24 24">${IC.settle}</svg></span></div><div class="val tnum">${man(c.receivable)}<small>원</small></div><div class="foot">${c.overdue?('지연 '+c.overdue+'건'):'정상'}</div></div>
+  <div class="stat ${pend.length?'warn':''}" onclick="go('sales')" style="cursor:pointer"><div class="cap">답 없는 견적<span class="chipi"><svg viewBox="0 0 24 24">${IC.quote}</svg></span></div>
+   <div class="val tnum">${pend.length}<small>건</small></div>
+   <div class="foot">${pend.length?`가장 오래된 건 <b>${pend[0].days}일째</b> · ${man(pend.reduce((a,g)=>a+g.total,0))}원`:'전부 답변 받았어요'}</div></div>
+  <div class="stat"><div class="cap">계약 수주액<span class="chipi"><svg viewBox="0 0 24 24">${IC.settle}</svg></span></div><div class="val tnum">${man(c.contracted)}<small>원</small></div><div class="foot">이번달 ${man(thisM)}원${delta(thisM,prevM)}</div></div>
+  <div class="stat accent"><div class="cap">받을 돈 · 미수금<span class="chipi"><svg viewBox="0 0 24 24">${IC.settle}</svg></span></div><div class="val tnum">${man(c.receivable)}<small>원</small></div><div class="foot">${c.overdue?('지연 '+c.overdue+'건'):'지연 없음'}</div></div>
   <div class="stat"><div class="cap">진행 현장<span class="chipi"><svg viewBox="0 0 24 24">${IC.site}</svg></span></div><div class="val tnum">${active.length}<small>곳</small></div><div class="foot">시공중 ${c.constructing} · 정산대기 ${c.settling}</div></div>
  </div>
+ ${pend.length?`<div class="nudge" onclick="go('sales')"><div class="nb">${pend[0].days}</div>
+   <div class="txt"><b>${esc(pend[0].base)}</b> 견적, 보낸 지 ${pend[0].days}일 됐어요<span>계약된 견적은 보통 2일 안에 답이 옵니다 — 한 번 찔러볼 때</span></div>
+   <span class="go">확인 →</span></div>`:''}
  <div class="grid two">
   <div class="grid" style="gap:16px">
    <div class="panel">
@@ -592,7 +671,7 @@ const OLDMAP={lead:'sent',visit:'sent',sent:'sent',contract:'contract',nego:'neg
 function pipeCards(){
  const est=estGroups().map(gp=>({id:'est:'+gp.base,name:gp.base,amount:gp.total,stage:gStage(gp),
    sub:(gp.latest.st.date||new Date(gp.latest.t).toLocaleDateString('ko-KR')),est:true,
-   vcnt:gp.versions.length, vname:gp.latest.k}));
+   vcnt:gp.versions.length, vname:gp.latest.k, days:daysSince(gp.latest)}));
  const man_=DB.sales.map(s=>({id:s.id,name:s.name,amount:s.amount||0,stage:OLDMAP[s.stage]||'sent',sub:s.client||s.due||'',est:false}));
  return est.concat(man_);
 }
@@ -610,9 +689,10 @@ function viewSales(){
  }).join('')}</div>`;
 }
 function pipeCard(c){const idx=STAGES.findIndex(x=>x[0]===c.stage);
- return `<div class="kc"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px"><div class="t">${esc(c.name)}${(c.vcnt>1)?`<span class="vbadge">v${c.vcnt}</span>`:''}</div>${c.est?'':`<button onclick="delSale('${c.id}')" style="color:var(--muted);font-size:17px;line-height:1;flex-shrink:0">×</button>`}</div>
+ return `<div class="kc ${(c.est&&c.stage==='sent'&&c.days>=14)?'hotcard':''}"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px"><div class="t">${esc(c.name)}${(c.vcnt>1)?`<span class="vbadge">v${c.vcnt}</span>`:''}</div>${c.est?'':`<button onclick="delSale('${c.id}')" style="color:var(--muted);font-size:17px;line-height:1;flex-shrink:0">×</button>`}</div>
   <div class="a tnum">${won(c.amount)}원</div>
   <div class="m"><span>${esc(c.sub)}</span><span>${c.est?((c.vcnt>1)?'최신본 기준':'견적 연동'):''}</span></div>
+  ${(c.est&&c.stage==='sent')?`<div class="age ${c.days>=14?'hot':(c.days>=7?'warm':'')}">보낸 지 ${c.days}일${c.days>=7?' · 연락해볼 때':''}</div>`:''}
   <div class="mv">
    <button ${idx<=0?'disabled style=opacity:.35':''} onclick="pipeMove('${c.id.replace(/'/g,"\\'")}',-1)">←</button>
    ${c.est?`<button data-est="${esc(c.vname||'')}" onclick="openEst(this.dataset.est)">열기</button>`:`<button onclick="editSale('${c.id}')">수정</button>`}
@@ -648,7 +728,7 @@ function viewSites(){
  const order={construction:0,settle:1,contract:2,estimate:3,lead:4,done:5};
  const sites=[...DB.sites].sort((a,b)=>(order[a.status]??9)-(order[b.status]??9));
  return `<div class="rowflex" style="justify-content:space-between;margin-bottom:14px"><div class="subttl">전체 ${DB.sites.length}곳</div><button class="btn sm" onclick="addSite()">＋ 현장 등록</button></div>
- <div class="panel">${sites.length?sites.map(siteRow).join(''):'<div class="empty">등록된 현장이 없어요</div>'}</div>`;
+ <div class="panel">${sites.length?sites.map(siteRow).join(''):'<div class="empty"><b>등록된 현장이 없어요</b>영업 보드에서 계약 단계로 옮기면 자동으로 만들어져요</div>'}</div>`;
 }
 function openSite(id){const s=DB.sites.find(x=>x.id===id);if(!s)return;const p=payParts(s);
  const states=Object.entries(STAT);
@@ -748,7 +828,8 @@ function viewQuotes(){
       <div class="info"><div class="nm">${esc(gp.base)}${multi?`<span class="vbadge">v${gp.versions.length}</span>`:''}</div>
        <div class="mt">${esc(e.st.date||new Date(e.t).toLocaleDateString('ko-KR'))}${e.st.client?' · '+esc(e.st.client):''}${multi?` · 최신 ${esc(e.k)}`:''}</div></div>
       <div style="text-align:right;margin-right:6px"><div class="pv tnum" style="font-size:15px;font-weight:800">${won(gp.total)}</div>
-       <span class="schip sc-est" style="margin-top:3px">${(STAGES.find(x=>x[0]===gStage(gp))||STAGES[0])[1]}</span></div>
+       <span class="schip sc-est" style="margin-top:3px">${(STAGES.find(x=>x[0]===gStage(gp))||STAGES[0])[1]}</span>
+       ${gStage(gp)==='sent'?`<div class="agemini ${daysSince(e)>=14?'hot':(daysSince(e)>=7?'warm':'')}">${daysSince(e)}일째</div>`:''}</div>
       ${multi?`<button class="btn gh sm" data-b="${esc(gp.base)}" onclick="estToggle(this.dataset.b)" style="margin-right:5px">${open?'접기':'버전'}</button>`:''}
       <button class="btn gh sm" data-est="${esc(e.k)}" onclick="openEst(this.dataset.est)">열기</button></div>
       ${(multi&&open)?gp.versions.map(v=>`<div class="rowitem" style="padding-left:56px;background:var(--goldFaint)">
@@ -756,7 +837,7 @@ function viewQuotes(){
          <div class="mt">${esc(v.st.date||'')} · 저장 ${new Date(v.t).toLocaleString('ko-KR')}</div></div>
         <div class="pv tnum" style="font-size:14px;font-weight:700;margin-right:8px">${won(v.total)}</div>
         <button class="btn gh sm" data-est="${esc(v.k)}" onclick="openEst(this.dataset.est)">열기</button></div>`).join(''):''}`;
-   }).join(''):'<div class="empty">저장된 견적이 없어요 — 견적서를 만들어 저장해보세요</div>'}
+   }).join(''):'<div class="empty"><b>아직 저장한 견적이 없어요</b>견적서를 만들고 저장하면 여기 자동으로 모입니다</div>'}
   </div>`;
 }
 
