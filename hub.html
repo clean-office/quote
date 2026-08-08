@@ -252,6 +252,28 @@ input,textarea,select{font-family:inherit;font-size:15px;}
   .rowitem button{min-height:40px;}
   .nudge{padding:15px;}
 }
+
+/* ===== 현장 사진 ===== */
+.drop{background:var(--card);border:1.5px dashed var(--line);border-radius:16px;padding:26px 20px;text-align:center;box-shadow:var(--sh);transition:border-color .15s,background .15s;}
+.drop.over{border-color:var(--ink);background:var(--goldFaint);}
+.drop .di{width:46px;height:46px;border-radius:14px;background:var(--goldFaint);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+.drop .di svg{width:23px;height:23px;stroke:var(--ink);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.drop .dt{font-size:16px;font-weight:800;letter-spacing:-.01em;}
+.drop .ds{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.6;}
+.drop .ds b{color:var(--ink2);font-weight:800;}
+.drop .dbtns{display:flex;gap:9px;justify-content:center;margin-top:16px;flex-wrap:wrap;}
+.drop label.btn{cursor:pointer;}
+.upt{font-size:12.5px;color:var(--ink2);font-weight:700;margin:16px 0 7px;}
+.upr{height:6px;background:var(--goldFaint);border-radius:20px;overflow:hidden;}
+.upb{height:100%;width:0;background:var(--ink);border-radius:20px;transition:width .25s ease;}
+.pgd{margin-top:14px;}
+.pgh{font-size:12.5px;font-weight:800;color:var(--muted);margin-bottom:8px;font-variant-numeric:tabular-nums;}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:8px;}
+.pth{position:relative;aspect-ratio:1;border-radius:11px;background:var(--goldFaint) center/cover no-repeat;cursor:pointer;
+ border:1px solid var(--line2);transition:transform .14s ease;overflow:hidden;}
+.pth:active{transform:scale(.97);}
+.pth .pp{position:absolute;left:5px;bottom:5px;background:rgba(20,20,22,.72);color:#fff;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;}
+@media(max-width:860px){.pgrid{grid-template-columns:repeat(3,1fr);gap:6px;} .drop{padding:22px 16px;}}
 .vbadge{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:20px;background:var(--goldFaint);
  color:var(--gold);font-size:10.5px;font-weight:800;vertical-align:middle;letter-spacing:.02em}
 .suglist{position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--line);
@@ -334,6 +356,7 @@ const IC={
  sales:'<path d="M4 20V10M10 20V4M16 20v-6M22 20H2"/>',
  site:'<path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-3"/>',
  quote:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+ cam:'<path d="M3 8a2 2 0 0 1 2-2h2.5l1.2-2h6.6l1.2 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/>',
  settle:'<path d="M20 7H5a2 2 0 0 0 0 9h15v-9zM20 7V5a2 2 0 0 0-2-2H6"/>',
  cust:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0M16 5.5a3 3 0 0 1 0 5.2M21 20a5.5 5.5 0 0 0-4-5.3"/>',
  dict:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM19 3v18"/>',
@@ -342,10 +365,10 @@ const IC={
 };
 const NAV=[
  {id:'home',label:'홈',ic:'home'},{id:'schedule',label:'일정',ic:'cal'},{id:'sales',label:'영업',ic:'sales'},{id:'sites',label:'현장',ic:'site'},
- {id:'quotes',label:'견적',ic:'quote'},{id:'settle',label:'정산',ic:'settle'},{id:'customers',label:'고객',ic:'cust'},
+ {id:'quotes',label:'견적',ic:'quote'},{id:'photos',label:'사진',ic:'cam'},{id:'settle',label:'정산',ic:'settle'},{id:'customers',label:'고객',ic:'cust'},
  {id:'dict',label:'단가',ic:'dict'},{id:'settings',label:'설정',ic:'gear'}
 ];
-const MTAB=['home','schedule','sales','sites','settle'];
+const MTAB=['home','schedule','sales','photos','settle'];
 
 /* ---------- data ---------- */
 const KEY='mdl_hub_v1';
@@ -370,7 +393,7 @@ function purgeSamples(){let n=0;
   (DB[k]||[]).forEach(o=>{if(o&&sig.includes(sampleSig(k,o))){DB._del=DB._del||{};if(o.id)DB._del[o.id]=Date.now();n++;}else keep.push(o);});
   DB[k]=keep;});
  return n;}
-const COLLS=['sites','sales','customers','dict','tasks','schedule'];
+const COLLS=['sites','sales','customers','dict','tasks','schedule','photos'];
 function normalizeDB(){COLLS.forEach(k=>{if(!Array.isArray(DB[k]))DB[k]=[];});
  if(!DB.pipe||typeof DB.pipe!=='object'||Array.isArray(DB.pipe))DB.pipe={};
  if(!DB._del||typeof DB._del!=='object'||Array.isArray(DB._del))DB._del={};
@@ -546,10 +569,10 @@ function go(r){location.hash=r;}
 function render(){
  const r=route();
  const nav=NAV.find(n=>n.id===r)||NAV[0];
- $('pageTitle').textContent={home:'홈',schedule:'일정',sales:'영업 보드',sites:'진행 현장',quotes:'견적서',settle:'정산·수금',customers:'고객·거래처',dict:'단가·품목 사전',settings:'설정'}[r]||'홈';
+ $('pageTitle').textContent={home:'홈',schedule:'일정',sales:'영업 보드',sites:'진행 현장',quotes:'견적서',photos:'현장 사진',settle:'정산·수금',customers:'고객·거래처',dict:'단가·품목 사전',settings:'설정'}[r]||'홈';
  $('rail').innerHTML='<div class="logo">m</div>'+NAV.map(n=>`<a class="ri ${n.id===r?'on':''}" href="#${n.id}"><svg viewBox="0 0 24 24">${IC[n.ic]}</svg><span>${n.label}</span></a>`).join('')+'<div class="sp"></div><div class="av">성</div>';
  $('mtab').innerHTML=MTAB.map(id=>{const n=NAV.find(x=>x.id===id);return `<a class="${id===r?'on':''}" href="#${id}"><svg viewBox="0 0 24 24">${IC[n.ic]}</svg>${n.label}</a>`;}).join('');
- const v={home:viewHome,schedule:viewSchedule,sales:viewSales,sites:viewSites,quotes:viewQuotes,settle:viewSettle,customers:viewCustomers,dict:viewDict,settings:viewSettings}[r]||viewHome;
+ const v={home:viewHome,schedule:viewSchedule,sales:viewSales,sites:viewSites,quotes:viewQuotes,photos:viewPhotos,settle:viewSettle,customers:viewCustomers,dict:viewDict,settings:viewSettings}[r]||viewHome;
  $('view').innerHTML=v();
  window.scrollTo(0,0);
 }
@@ -839,6 +862,185 @@ function viewQuotes(){
         <button class="btn gh sm" data-est="${esc(v.k)}" onclick="openEst(this.dataset.est)">열기</button></div>`).join(''):''}`;
    }).join(''):'<div class="empty"><b>아직 저장한 견적이 없어요</b>견적서를 만들고 저장하면 여기 자동으로 모입니다</div>'}
   </div>`;
+}
+
+/* ================= 현장 사진 ================= */
+const PBUCKET='photo:';
+function photoRows(){ if(!Array.isArray(DB.photos))DB.photos=[]; return DB.photos; }
+/* --- EXIF 촬영일 (JPEG APP1 최소 파서) --- */
+function exifDate(buf){
+ try{
+  const v=new DataView(buf); if(v.getUint16(0)!==0xFFD8)return null;
+  let o=2;
+  while(o<v.byteLength-4){
+   const m=v.getUint16(o); const len=v.getUint16(o+2);
+   if(m===0xFFE1){
+    const s=o+4;
+    if(v.getUint32(s)!==0x45786966)return null;
+    const t=s+6; const le=v.getUint16(t)===0x4949;
+    const g16=(p)=>v.getUint16(p,le), g32=(p)=>v.getUint32(p,le);
+    let ifd=t+g32(t+4);
+    for(let pass=0;pass<2;pass++){
+     const n=g16(ifd);
+     let sub=0;
+     for(let i=0;i<n;i++){
+      const e=ifd+2+i*12, tag=g16(e);
+      if(tag===0x9003||tag===0x0132){
+       const off=t+g32(e+8); let str='';
+       for(let k=0;k<19;k++)str+=String.fromCharCode(v.getUint8(off+k));
+       const mm=str.match(/^(\d{4}):(\d{2}):(\d{2})/);
+       if(mm)return mm[1]+'-'+mm[2]+'-'+mm[3];
+      }
+      if(tag===0x8769)sub=t+g32(e+8);
+     }
+     if(!sub)break; ifd=sub;
+    }
+    return null;
+   }
+   if((m&0xFF00)!==0xFF00)break;
+   o+=2+len;
+  }
+ }catch(e){}
+ return null;
+}
+/* --- 리사이즈 --- */
+function shrink(file,max,q){
+ return new Promise(res=>{
+  const img=new Image(), url=URL.createObjectURL(file);
+  img.onload=()=>{
+   let w=img.width,h=img.height;
+   const r=Math.min(1,max/Math.max(w,h)); w=Math.round(w*r); h=Math.round(h*r);
+   const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+   cv.getContext('2d').drawImage(img,0,0,w,h);
+   URL.revokeObjectURL(url);
+   res({data:cv.toDataURL('image/jpeg',q), w, h});
+  };
+  img.onerror=()=>{URL.revokeObjectURL(url);res(null);};
+  img.src=url;
+ });
+}
+/* --- 그 날짜의 일정으로 현장·공정 자동 판별 --- */
+function guessSite(date){
+ const hit=(DB.schedule||[]).filter(s=>{
+  const a=s.date, b=s.end||s.date;
+  return a&&date>=a&&date<=b&&(s.site||s.proc);
+ });
+ if(!hit.length)return {site:'',proc:''};
+ return {site:hit[0].site||'', proc:hit[0].proc||''};
+}
+/* --- 업로드 --- */
+let _upBusy=false;
+async function photoUpload(files){
+ if(!files||!files.length)return;
+ if(!cloud){toast('클라우드 연결 후 사용할 수 있어요');return;}
+ if(_upBusy){toast('업로드 중이에요');return;}
+ _upBusy=true;
+ const list=[...files].filter(f=>/^image\//.test(f.type));
+ let done=0, ok=0;
+ const bar=$('upbar'), txt=$('uptxt'), box=$('upbox');
+ if(box)box.style.display='block';
+ for(const f of list){
+  try{
+   let d=null;
+   try{ d=exifDate(await f.slice(0,131072).arrayBuffer()); }catch(e){}
+   if(!d){const t=new Date(f.lastModified||Date.now());
+    d=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
+   const big=await shrink(f,1400,.82), th=await shrink(f,340,.72);
+   if(!big||!th)throw 0;
+   const g=guessSite(d);
+   const id=uid()+Date.now().toString(36).slice(-4);
+   const r=await fetch(`${cloud.url}/rest/v1/moredo_state`,{method:'POST',
+     headers:{...sbHeaders(),Prefer:'resolution=merge-duplicates'},
+     body:JSON.stringify([{id:PBUCKET+id,data:{img:big.data,thumb:th.data},updated_at:new Date().toISOString()}])});
+   if(!r.ok)throw 0;
+   photoRows().unshift({id,site:g.site,proc:g.proc,date:d,ts:Date.now(),memo:'',w:big.w,h:big.h});
+   ok++;
+  }catch(e){}
+  done++;
+  if(bar)bar.style.width=Math.round(done/list.length*100)+'%';
+  if(txt)txt.textContent=`${done}/${list.length}장 처리 중…`;
+ }
+ save();_upBusy=false;
+ if(box)box.style.display='none';
+ _photoCache={};
+ render();
+ toast(ok?`사진 ${ok}장 올렸어요 — 날짜로 현장 자동 분류`:'업로드에 실패했어요');
+}
+/* --- 썸네일 로드 (필요한 것만) --- */
+let _photoCache={}, _thumbLoading=false;
+async function loadThumbs(ids){
+ if(!cloud||!ids.length||_thumbLoading)return;
+ const need=ids.filter(i=>!_photoCache[i]); if(!need.length)return;
+ _thumbLoading=true;
+ try{
+  const inl=need.slice(0,60).map(i=>`"${PBUCKET}${i}"`).join(',');
+  const r=await fetch(`${cloud.url}/rest/v1/moredo_state?id=in.(${encodeURIComponent(inl)})&select=id,data->>thumb`,{headers:sbHeaders()});
+  if(r.ok){(await r.json()).forEach(row=>{_photoCache[row.id.slice(PBUCKET.length)]=row.thumb;});
+   document.querySelectorAll('[data-ph]').forEach(el=>{const t=_photoCache[el.dataset.ph];
+    if(t&&!el.style.backgroundImage)el.style.backgroundImage=`url(${t})`;});}
+ }catch(e){}
+ _thumbLoading=false;
+}
+async function photoOpen(id){
+ const p=photoRows().find(x=>x.id===id); if(!p)return;
+ openModal(`<h3>사진</h3><div id="phbody" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</div>
+  <div class="f"><label>현장</label><input id="ph_site" value="${esc(p.site||'')}" placeholder="현장명"></div>
+  <div class="f2"><div class="f"><label>공정</label><input id="ph_proc" value="${esc(p.proc||'')}"></div>
+   <div class="f"><label>촬영일</label><input id="ph_date" type="date" value="${esc(p.date||'')}"></div></div>
+  <div class="f"><label>메모</label><input id="ph_memo" value="${esc(p.memo||'')}"></div>
+  <div class="mact"><button class="btn gh" onclick="photoDel('${id}')" style="color:var(--bad)">삭제</button>
+   <button class="btn gh" onclick="closeModal()">닫기</button><button class="btn" onclick="photoSave('${id}')">저장</button></div>`);
+ try{
+  const r=await fetch(`${cloud.url}/rest/v1/moredo_state?id=eq.${encodeURIComponent(PBUCKET+id)}&select=data->>img`,{headers:sbHeaders()});
+  const rows=await r.json();
+  const b=$('phbody');
+  if(b)b.innerHTML=rows[0]&&rows[0].img?`<img src="${rows[0].img}" style="max-width:100%;border-radius:12px">`:'<div style="padding:20px;color:var(--muted)">원본을 찾지 못했어요</div>';
+ }catch(e){}
+}
+function photoSave(id){
+ const p=photoRows().find(x=>x.id===id); if(!p)return;
+ p.site=$('ph_site').value.trim(); p.proc=$('ph_proc').value.trim();
+ p.date=$('ph_date').value||p.date; p.memo=$('ph_memo').value.trim();
+ save();closeModal();render();toast('저장됨');
+}
+function photoDel(id){
+ if(!confirm('이 사진을 삭제할까요?'))return;
+ DB.photos=photoRows().filter(x=>x.id!==id);
+ if(cloud)fetch(`${cloud.url}/rest/v1/moredo_state?id=eq.${encodeURIComponent(PBUCKET+id)}`,{method:'DELETE',headers:sbHeaders()}).catch(()=>{});
+ save();closeModal();render();toast('삭제됨');
+}
+function photoDrop(e){e.preventDefault();e.currentTarget.classList.remove('over');photoUpload(e.dataTransfer.files);}
+function photoOver(e){e.preventDefault();e.currentTarget.classList.add('over');}
+function photoLeave(e){e.currentTarget.classList.remove('over');}
+let _phFilter='';
+function phFilter(v){_phFilter=v;render();}
+function viewPhotos(){
+ const all=photoRows();
+ const sites=[...new Set(all.map(p=>p.site||'미분류'))];
+ const shown=_phFilter?all.filter(p=>(p.site||'미분류')===_phFilter):all;
+ const byS={};
+ shown.forEach(p=>{const k=p.site||'미분류';(byS[k]=byS[k]||{})[p.date]=(byS[k][p.date]||[]).concat([p]);});
+ setTimeout(()=>loadThumbs(shown.slice(0,60).map(p=>p.id)),40);
+ return `<div class="drop" id="dropzone" ondragover="photoOver(event)" ondragleave="photoLeave(event)" ondrop="photoDrop(event)">
+   <div class="di"><svg viewBox="0 0 24 24">${IC.cam}</svg></div>
+   <div class="dt">현장 사진을 한꺼번에 올리세요</div>
+   <div class="ds">찍은 날짜를 읽어서 그날 일정의 현장·공정으로 <b>자동 분류</b>합니다 — 한 달치를 통째로 던져넣어도 돼요</div>
+   <div class="dbtns">
+    <label class="btn">사진 고르기<input type="file" accept="image/*" multiple style="display:none" onchange="photoUpload(this.files);this.value=''"></label>
+    <label class="btn gh">카메라<input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="photoUpload(this.files);this.value=''"></label>
+   </div>
+   <div id="upbox" style="display:none"><div class="upt" id="uptxt">준비 중…</div><div class="upr"><div class="upb" id="upbar"></div></div></div>
+  </div>
+  ${all.length?`<div class="mrow" style="margin:14px 0 4px">
+    <button class="mchip ${_phFilter?'':'on'}" onclick="phFilter('')">전체 ${all.length}</button>
+    ${sites.map(s=>`<button class="mchip ${_phFilter===s?'on':''}" data-s="${esc(s)}" onclick="phFilter(this.dataset.s)">${esc(s.length>10?s.slice(0,10)+'…':s)} ${all.filter(p=>(p.site||'미분류')===s).length}</button>`).join('')}
+   </div>`:''}
+  ${Object.keys(byS).length?Object.keys(byS).map(site=>`
+   <div class="panel" style="margin-top:14px"><div class="ph"><div><div class="t">${esc(site)}</div>
+     <div class="subttl">${Object.values(byS[site]).reduce((a,b)=>a+b.length,0)}장</div></div></div>
+    ${Object.keys(byS[site]).sort().reverse().map(d=>`<div class="pgd"><div class="pgh">${esc(d)}</div>
+      <div class="pgrid">${byS[site][d].map(p=>`<div class="pth" data-ph="${p.id}" onclick="photoOpen('${p.id}')">${p.proc?`<span class="pp">${esc(p.proc)}</span>`:''}</div>`).join('')}</div></div>`).join('')}
+   </div>`).join(''):'<div class="panel" style="margin-top:14px"><div class="empty"><b>아직 올린 사진이 없어요</b>현장 사진은 하자·미수금 다툼에서 가장 확실한 증거가 됩니다</div></div>'}`;
 }
 
 /* ---------- SETTINGS ---------- */
