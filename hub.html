@@ -204,6 +204,11 @@ input,textarea,select{font-family:inherit;font-size:15px;}
 
 /* schedule modal chips */
 .mrow{display:flex;gap:6px;flex-wrap:wrap;}
+.suglist{position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--line);
+ border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.10);margin-top:4px;overflow:hidden;max-height:210px;overflow-y:auto}
+.suglist .sug{padding:10px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--line)}
+.suglist .sug:last-child{border-bottom:none}
+.suglist .sug:hover{background:var(--goldFaint)}
 .mchip{border:1.5px solid var(--line);border-radius:16px;padding:7px 13px;font-size:13px;font-weight:600;color:var(--ink2);background:var(--card);}
 .mchip.on{background:var(--espresso);color:#fff;border-color:var(--espresso);}
 
@@ -765,7 +770,7 @@ function setSchedMode(m){schedMode=m;localStorage.setItem('mdl_sched_view',m);re
 function calMove(d){const [y,m]=calYM.split('-').map(Number);const nd=new Date(y,m-1+d,1);calYM=nd.getFullYear()+'-'+String(nd.getMonth()+1).padStart(2,'0');calSel=null;render();}
 function calPick(dt){calSel=dt;render();}
 function schedRow(s){const t0=todayStr();const ongoing=s.date<t0&&(s.end||s.date)>=t0;const[lb,cl]=ongoing?['진행중','var(--good)']:dayLabel(s.date);
- return `<div class="rowitem" style="border-left:3px solid ${colorFor(s.site)};padding-left:11px"><div class="savatar" style="background:var(--goldFaint)"><svg viewBox="0 0 24 24">${IC.cal}</svg></div><div class="info"><div class="nm">${esc(schedTitle(s))}</div><div class="mt">${esc(s.date)}${s.end?' ~ '+esc(s.end):''}${s.time?' '+esc(s.time):''}${s.with?' · '+esc(s.with):''}${s.memo?' · '+esc(s.memo):''}${addrLink(s.addr)}${phoneLink(s.phone)}</div></div><span class="schip" style="color:${cl};background:var(--goldFaint)"><span class="sdot"></span>${lb}${s.time?' '+esc(s.time):''}</span><button onclick="delMeeting('${s.id}')" style="color:var(--muted);font-size:16px;flex-shrink:0">×</button></div>`;}
+ return `<div class="rowitem" style="border-left:3px solid ${colorFor(s.site)};padding-left:11px"><div class="savatar" style="background:var(--goldFaint)"><svg viewBox="0 0 24 24">${IC.cal}</svg></div><div class="info"><div class="nm">${esc(schedTitle(s))}</div><div class="mt">${esc(s.date)}${s.end?' ~ '+esc(s.end):''}${s.time?' '+esc(s.time):''}${s.with?' · '+esc(s.with):''}${s.memo?' · '+esc(s.memo):''}${addrLink(s.addr)}${phoneLink(s.phone)}</div></div><span class="schip" style="color:${cl};background:var(--goldFaint)"><span class="sdot"></span>${lb}${s.time?' '+esc(s.time):''}</span><button onclick="event.stopPropagation();editMeeting('${s.id}')" class="btn gh sm" style="flex-shrink:0;margin-right:5px">수정</button><button onclick="event.stopPropagation();delMeeting('${s.id}')" style="color:var(--muted);font-size:16px;flex-shrink:0">×</button></div>`;}
 function viewSchedule(){
  const t=todayStr();
  if(schedMode==='list'){
@@ -816,37 +821,72 @@ let _mtKind='work',_mtProc='';
 function mtKind(k){_mtKind=k;document.querySelectorAll('[data-mtk]').forEach(el=>el.classList.toggle('on',el.dataset.mtk===k));const w=$('mt_workbox');if(w)w.style.display=(k==='work')?'block':'none';}
 function mtProc(p){_mtProc=(_mtProc===p?'':p);document.querySelectorAll('[data-mtp]').forEach(el=>el.classList.toggle('on',el.dataset.mtp===_mtProc));}
 let _mtSite='';
-function mtSiteChip(n){
- _mtSite=(_mtSite===n?'':n);
- document.querySelectorAll('[data-mts]').forEach(el=>el.classList.toggle('on',el.dataset.mts===_mtSite));
- $('mt_sitec').style.display=(_mtSite==='__custom')?'block':'none';
- const st=DB.sites.find(x=>x.name===_mtSite);
+function mtSiteSug(hide){
+ const box=$('mt_site'), ul=$('mt_sitelist'); if(!box||!ul)return;
+ const q=(box.value||'').trim(); _mtSite=q;
+ document.querySelectorAll('[data-mts]').forEach(el=>el.classList.toggle('on',el.dataset.mts===q));
+ if(hide||!q){ul.style.display='none';return;}
+ const hit=siteNames().filter(n=>n!==q&&n.toLowerCase().includes(q.toLowerCase())).slice(0,6);
+ if(!hit.length){ul.style.display='none';return;}
+ ul.innerHTML=hit.map(n=>'<div class="sug" data-s="'+esc(n)+'" onmousedown="mtSitePick(this.dataset.s)">'+esc(n)+'</div>').join('');
+ ul.style.display='block';
+}
+function mtSitePick(n){
+ const box=$('mt_site'); if(box)box.value=n;
+ _mtSite=n; mtSiteSug(true);
+ document.querySelectorAll('[data-mts]').forEach(el=>el.classList.toggle('on',el.dataset.mts===n));
+ const st=DB.sites.find(x=>x.name===n);
  if(st){if(st.addr&&!$('mt_addr').value)$('mt_addr').value=st.addr;if(st.phone&&!$('mt_phone').value)$('mt_phone').value=st.phone;}
 }
-function addMeeting(dt){_mtKind='work';_mtProc='';_mtSite='';openModal(`<h3>일정 등록</h3>
+function mtSyncChips(){
+ document.querySelectorAll('[data-mtk]').forEach(el=>el.classList.toggle('on',el.dataset.mtk===_mtKind));
+ document.querySelectorAll('[data-mtp]').forEach(el=>el.classList.toggle('on',el.dataset.mtp===_mtProc));
+ document.querySelectorAll('[data-mts]').forEach(el=>el.classList.toggle('on',el.dataset.mts===_mtSite));
+ const w=$('mt_workbox'); if(w)w.style.display=(_mtKind==='work')?'block':'none';
+}
+let _mtEdit=null;
+function editMeeting(id){const s=DB.schedule.find(x=>x.id===id);if(!s){toast('일정을 찾지 못했어요');return;}addMeeting(s.date,s);}
+function addMeeting(dt,ev){
+ _mtEdit=ev||null;
+ _mtKind=ev?(ev.kind||'work'):'work'; _mtProc=ev?(ev.proc||''):''; _mtSite=ev?(ev.site||''):'';
+ openModal(`<h3>${ev?'일정 수정':'일정 등록'}</h3>
  <div class="f"><label>종류</label><div class="mrow">
   <button class="mchip on" data-mtk="work" onclick="mtKind('work')">현장 공정</button>
   <button class="mchip" data-mtk="meet" onclick="mtKind('meet')">미팅·실측</button>
   <button class="mchip" data-mtk="etc" onclick="mtKind('etc')">기타</button></div></div>
  <div id="mt_workbox">
-  <div class="f"><label>현장 (고르면 주소·전화 자동)</label><div class="mrow">${siteNames().slice(0,8).map(n=>`<button class="mchip" data-mts="${esc(n)}" onclick="mtSiteChip('${esc(n).replace(/'/g,"\\'")}')">${esc(siteShort(n)===n?n:n.slice(0,14))}</button>`).join('')}<button class="mchip" data-mts="__custom" onclick="mtSiteChip('__custom')">직접 입력</button></div><input id="mt_sitec" placeholder="현장명 입력" style="display:none;margin-top:8px"></div>
-  <div class="f"><label>공정 (한 번 누르면 선택, 다시 누르면 해제)</label><div class="mrow">${PROCS.map(p=>`<button class="mchip" data-mtp="${p}" onclick="mtProc('${p}')">${p}</button>`).join('')}</div></div>
+  <div class="f" style="position:relative"><label>현장 (입력하면 찾아줌 · 새 이름도 그대로 사용)</label>
+   <input id="mt_site" placeholder="현장명 입력 또는 검색" autocomplete="off" oninput="mtSiteSug()" onfocus="mtSiteSug()" onblur="setTimeout(function(){mtSiteSug(true)},170)">
+   <div id="mt_sitelist" class="suglist" style="display:none"></div>
+   <div class="mrow" style="margin-top:7px">${siteNames().slice(0,4).map(n=>`<button class="mchip" data-mts="${esc(n)}" onclick="mtSitePick(this.dataset.mts)">${esc(n.length>12?n.slice(0,12)+'…':n)}</button>`).join('')}</div></div>
+  <div class="f"><label>공정 (한 번 누르면 선택, 다시 누르면 해제)</label><div class="mrow">${PROCS.concat((_mtProc&&PROCS.indexOf(_mtProc)<0)?[_mtProc]:[]).map(p=>`<button class="mchip" data-mtp="${esc(p)}" onclick="mtProc(this.dataset.mtp)">${esc(p)}</button>`).join('')}</div></div>
  </div>
  <div class="f"><label>내용 (비우면 "현장 — 공정"으로 자동)</label><input id="mt_title" placeholder="예: 봉천 치킨집 실측 방문"></div>
  <div class="f2"><div class="f"><label>시작일</label><input id="mt_date" type="date" value="${(typeof dt==='string'&&dt)?dt:todayStr()}"></div><div class="f"><label>종료일 (하루짜리면 비움)</label><input id="mt_end" type="date"></div></div>
  <div class="f2"><div class="f"><label>시간 (선택)</label><input id="mt_time" type="time"></div><div class="f"><label>상대/담당 (선택)</label><input id="mt_with" placeholder="이성원 대표"></div></div>
  <div class="f2"><div class="f"><label>주소 (선택) — 누르면 지도</label><input id="mt_addr" placeholder="예: 관악구 봉천동 123-4"></div><div class="f"><label>전화번호 (선택) — 누르면 전화</label><input id="mt_phone" inputmode="tel" placeholder="010-0000-0000"></div></div>
  <div class="f"><label>메모 (선택)</label><input id="mt_memo"></div>
- <div class="mact"><button class="btn gh" onclick="closeModal()">취소</button><button class="btn" onclick="createMeeting()">등록</button></div>`);}
+ <div class="mact"><button class="btn gh" onclick="closeModal()">취소</button><button class="btn" onclick="createMeeting()">${ev?'수정 저장':'등록'}</button></div>`);
+ if(ev){
+  const v=(id,val)=>{const e=$(id); if(e)e.value=val||'';};
+  v('mt_site',ev.site); v('mt_title',ev.title); v('mt_date',ev.date); v('mt_end',ev.end);
+  v('mt_time',ev.time); v('mt_with',ev.with); v('mt_addr',ev.addr); v('mt_phone',ev.phone); v('mt_memo',ev.memo);
+ }
+ mtSyncChips();}
 function createMeeting(){
- const site=(_mtKind==='work')?((_mtSite==='__custom')?$('mt_sitec').value.trim():_mtSite):'';
+ const site=(_mtKind==='work')?((($('mt_site')&&$('mt_site').value)||'').trim()):'';
  const proc=(_mtKind==='work')?_mtProc:'';
  const t=$('mt_title').value.trim(),d=$('mt_date').value;
  if(!d){toast('시작일을 선택하세요');return;}
  if(!t&&!site&&!proc){toast('내용을 쓰거나 현장·공정을 선택하세요');return;}
  let end=$('mt_end').value;if(end&&end<=d)end='';
- DB.schedule.push({id:uid(),kind:_mtKind,site,proc,date:d,end,time:$('mt_time').value,title:t,with:$('mt_with').value,memo:$('mt_memo').value,addr:$('mt_addr').value.trim(),phone:$('mt_phone').value.trim()});
- save();closeModal();render();toast('일정 등록됨');}
+ const rec={kind:_mtKind,site,proc,date:d,end,time:$('mt_time').value,title:t,with:$('mt_with').value,memo:$('mt_memo').value,addr:$('mt_addr').value.trim(),phone:$('mt_phone').value.trim()};
+ if(_mtEdit){const i=DB.schedule.findIndex(x=>x.id===_mtEdit.id);
+  if(i<0){toast('일정을 찾지 못했어요');return;}
+  DB.schedule[i]=Object.assign({},DB.schedule[i],rec);}
+ else DB.schedule.push(Object.assign({id:uid()},rec));
+ const wasEdit=!!_mtEdit; _mtEdit=null;
+ save();closeModal();render();toast(wasEdit?'일정 수정됨':'일정 등록됨');}
 function delMeeting(id){if(!confirm('이 일정을 삭제할까요?'))return;DB.schedule=DB.schedule.filter(x=>x.id!==id);tomb(id);save();render();toast('삭제됨');}
 
 /* ---------- modal ---------- */
