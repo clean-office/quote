@@ -803,6 +803,12 @@ async function cloudPullEstimates(){
       Object.keys(local).forEach(k=>{if(!merged[k]||(local[k].t||0)>(merged[k].t||0))merged[k]=local[k];});
       _applyDel(merged,del);
       localStorage.setItem('mdl_saves',JSON.stringify(merged));
+      /* 이 기기에만 있던 견적은 클라우드로 올려준다 (양방향 동기화) */
+      const remoteKeys=Object.keys(rd.saves).length, mergedKeys=Object.keys(merged).length;
+      const onlyHere=Object.keys(merged).some(k=>!rd.saves[k]||(merged[k].t||0)>(rd.saves[k].t||0));
+      if(onlyHere||mergedKeys!==remoteKeys)cloudPushEstimates();
+    } else if(rd===undefined||rd===null||!rd.saves){
+      if(Object.keys(JSON.parse(localStorage.getItem('mdl_saves')||'{}')).length)cloudPushEstimates();
     }
   }catch(e){}
 }
