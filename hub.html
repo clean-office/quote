@@ -920,13 +920,19 @@ function shrink(file,max,q){
  });
 }
 /* --- 그 날짜의 일정으로 현장·공정 자동 판별 --- */
+function schSite(s){return (s.site||s.title||'').trim();}
+function allSiteNames(){const a=[];try{siteNames().forEach(n=>{if(n&&!a.includes(n))a.push(n);});}catch(e){}
+ (DB.schedule||[]).forEach(s=>{const n=schSite(s);if(n&&!a.includes(n))a.push(n);});
+ (DB.photos||[]).forEach(p=>{if(p.site&&!a.includes(p.site))a.push(p.site);});return a;}
 function guessSite(date){
  const hit=(DB.schedule||[]).filter(s=>{
   const a=s.date, b=s.end||s.date;
-  return a&&date>=a&&date<=b&&(s.site||s.proc);
+  return a&&date>=a&&date<=b&&(schSite(s)||s.proc);
  });
  if(!hit.length)return {site:'',proc:''};
- return {site:hit[0].site||'', proc:hit[0].proc||''};
+ hit.sort((a,b)=>(a.kind==='work'?0:1)-(b.kind==='work'?0:1));
+ const w=hit.find(s=>s.kind==='work')||hit[0];
+ return {site:schSite(w), proc:w.proc||''};
 }
 /* --- 업로드 --- */
 let _upBusy=false;
@@ -984,7 +990,8 @@ async function loadThumbs(ids){
 async function photoOpen(id){
  const p=photoRows().find(x=>x.id===id); if(!p)return;
  openModal(`<h3>사진</h3><div id="phbody" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</div>
-  <div class="f"><label>현장</label><input id="ph_site" value="${esc(p.site||'')}" placeholder="현장명"></div>
+  <div class="f"><label>현장</label><input id="ph_site" list="ph_sitelist" value="${esc(p.site||'')}" placeholder="현장명">
+   <datalist id="ph_sitelist">${allSiteNames().map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
   <div class="f2"><div class="f"><label>공정</label><input id="ph_proc" value="${esc(p.proc||'')}"></div>
    <div class="f"><label>촬영일</label><input id="ph_date" type="date" value="${esc(p.date||'')}"></div></div>
   <div class="f"><label>메모</label><input id="ph_memo" value="${esc(p.memo||'')}"></div>
