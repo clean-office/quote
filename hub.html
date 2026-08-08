@@ -531,7 +531,7 @@ const SITE_COLORS=['#2456c4','#0f7a4e','#c0512f','#6d3fc0','#0f7a80','#b0308a','
 function colorFor(site){if(!site)return '#b4b4b8';let x=0;for(let i=0;i<site.length;i++)x=(x*31+site.charCodeAt(i))>>>0;return SITE_COLORS[x%SITE_COLORS.length];}
 function siteShort(s){if(!s)return '';const t=String(s).trim().split(/\s+/)[0];return t.length>6?t.slice(0,6):t;}
 function schedTitle(s){return s.title||((s.site&&s.proc)?s.site+' — '+s.proc:(s.site||s.proc||'일정'));}
-function projBase(n){return (n||'').replace(/\s*v\d+\s*$/i,'').replace(/\s*\(\d{4}-\d{2}-\d{2}\)\s*$/,'').replace(/\s*\(\uBC31\uC5C5\)\s*$/,'').trim()||n;}
+function projBase(n){return (n||'').replace(/\s*\(\uBC31\uC5C5\)\s*$/,'').replace(/\s*\(\d{4}-\d{2}-\d{2}\)\s*$/,'').replace(/\s*v\d+\s*$/i,'').replace(/\s*\uC218\uC815\s*\d*\s*\uCC28?\s*$/,'').trim()||n;}
 function siteNames(){const arr=[];DB.sites.forEach(s=>{if(s.name&&!arr.includes(s.name))arr.push(s.name);});try{estList().forEach(e=>{const b=projBase(e.k);if(b&&!arr.includes(b))arr.push(b);});}catch(e){}return arr;}
 function addrLink(a){return a?` · <a href="https://map.kakao.com/link/search/${encodeURIComponent(a)}" target="_blank" onclick="event.stopPropagation()" style="color:var(--blue);text-decoration:underline">📍${esc(a)}</a>`:'';}
 function phoneLink(p){return p?` · <a href="tel:${esc(String(p).replace(/[^\d+]/g,''))}" onclick="event.stopPropagation()" style="color:var(--good);text-decoration:underline;font-weight:700">📞${esc(p)}</a>`:'';}
@@ -858,7 +858,7 @@ function addMeeting(dt,ev){
   <div class="f" style="position:relative"><label>현장 (입력하면 찾아줌 · 새 이름도 그대로 사용)</label>
    <input id="mt_site" placeholder="현장명 입력 또는 검색" autocomplete="off" oninput="mtSiteSug()" onfocus="mtSiteSug()" onblur="setTimeout(function(){mtSiteSug(true)},170)">
    <div id="mt_sitelist" class="suglist" style="display:none"></div>
-   <div class="mrow" style="margin-top:7px">${siteNames().slice(0,4).map(n=>`<button class="mchip" data-mts="${esc(n)}" onclick="mtSitePick(this.dataset.mts)">${esc(n.length>12?n.slice(0,12)+'…':n)}</button>`).join('')}</div></div>
+   <div class="mrow" style="margin-top:7px">${siteNames().slice(0,4).map(n=>`<button class="mchip" data-mts="${esc(n)}" onclick="mtSitePick(this.dataset.mts)">${esc(n.length>15?n.slice(0,15)+'…':n)}</button>`).join('')}</div></div>
   <div class="f"><label>공정 (한 번 누르면 선택, 다시 누르면 해제)</label><div class="mrow">${PROCS.concat((_mtProc&&PROCS.indexOf(_mtProc)<0)?[_mtProc]:[]).map(p=>`<button class="mchip" data-mtp="${esc(p)}" onclick="mtProc(this.dataset.mtp)">${esc(p)}</button>`).join('')}</div></div>
  </div>
  <div class="f"><label>내용 (비우면 "현장 — 공정"으로 자동)</label><input id="mt_title" placeholder="예: 봉천 치킨집 실측 방문"></div>
