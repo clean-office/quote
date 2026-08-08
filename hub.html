@@ -204,6 +204,8 @@ input,textarea,select{font-family:inherit;font-size:15px;}
 
 /* schedule modal chips */
 .mrow{display:flex;gap:6px;flex-wrap:wrap;}
+.vbadge{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:20px;background:var(--goldFaint);
+ color:var(--gold);font-size:10.5px;font-weight:800;vertical-align:middle;letter-spacing:.02em}
 .suglist{position:absolute;left:0;right:0;top:100%;z-index:30;background:#fff;border:1px solid var(--line);
  border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.10);margin-top:4px;overflow:hidden;max-height:210px;overflow-y:auto}
 .suglist .sug{padding:10px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--line)}
@@ -426,10 +428,29 @@ function estList(){loadEst();return Object.keys(EST).map(k=>({k,t:EST[k].t||0,st
 function estMonthStats(){
  const now=new Date();const ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
  let cnt=0,sum=0;
- estList().forEach(e=>{const d=(e.st&&e.st.date)||new Date(e.t).toISOString().slice(0,10);if(String(d).slice(0,7)===ym){cnt++;sum+=e.total;}});
+ estGroups().forEach(g=>{const e=g.latest;const d=(e.st&&e.st.date)||new Date(e.t).toISOString().slice(0,10);if(String(d).slice(0,7)===ym){cnt++;sum+=g.total;}});
  return {cnt,sum};
 }
 function pipeStage(k){return (DB.pipe&&DB.pipe[k])||'sent';}
+/* 같은 현장의 '수정 1', '(백업)' 같은 버전들을 하나로 묶는다 */
+function estGroups(){
+ const g={};
+ estList().forEach(e=>{const b=projBase(e.k);(g[b]=g[b]||[]).push(e);});
+ return Object.keys(g).map(b=>{
+  const vs=g[b].sort((a,c)=>c.t-a.t);
+  return {base:b, latest:vs[0], versions:vs, total:vs[0].total, t:vs[0].t};
+ }).sort((a,c)=>c.t-a.t);
+}
+/* 단계는 현장 기준으로 본다 (예전에 버전별로 저장된 값도 살려서 읽음) */
+function gStage(gp){
+ if(DB.pipe&&DB.pipe[gp.base])return DB.pipe[gp.base];
+ let best=null,bi=-1;
+ gp.versions.forEach(v=>{const s=DB.pipe&&DB.pipe[v.k];if(!s)return;
+  const i=STAGES.findIndex(x=>x[0]===s); if(i>bi){bi=i;best=s;}});
+ return best||'sent';
+}
+let _estOpen={};
+function estToggle(b){_estOpen[b]=!_estOpen[b];render();}
 function openEst(k){location.href='./index.html?open='+encodeURIComponent(k);}
 
 /* ---------- helpers ---------- */
@@ -475,7 +496,7 @@ function viewHome(){
  const c=calc();
  const chart=monthChart();
  const em=estMonthStats();
- const recentEst=estList().slice(0,4);
+ const recentEst=estGroups().slice(0,4).map(g=>Object.assign({},g.latest,{k:g.base,_v:g.versions.length,_total:g.total}));
  const active=DB.sites.filter(s=>ACTIVE.includes(s.status));
  const recvSites=DB.sites.map(s=>({s,u:unpaid(s)})).filter(x=>x.u>0).sort((a,b)=>b.u-a.u).slice(0,3);
  return cloudBanner()+`
@@ -517,10 +538,10 @@ function viewHome(){
   </div>
  </div>`;
 }
-function estRow(e){const stg=STAGES.find(x=>x[0]===pipeStage(e.k))||STAGES[0];
+function estRow(e){const stg=STAGES.find(x=>x[0]===(DB.pipe&&DB.pipe[e.k])||x[0]===pipeStage(e.k))||STAGES[0];
  return `<div class="rowitem" data-est="${esc(e.k)}" onclick="openEst(this.dataset.est)" style="cursor:pointer"><div class="savatar"><svg viewBox="0 0 24 24">${IC.quote}</svg></div>
- <div class="info"><div class="nm">${esc(e.k)}</div><div class="mt">${esc(e.st.date||new Date(e.t).toLocaleDateString('ko-KR'))}${e.st.client?' · '+esc(e.st.client):''}</div></div>
- <div style="text-align:right"><div class="pv tnum" style="font-size:15px;font-weight:800">${won(e.total)}</div><span class="schip sc-est" style="margin-top:4px">${stg[1]}</span></div></div>`;}
+ <div class="info"><div class="nm">${esc(e.k)}${(e._v>1)?`<span class="vbadge">v${e._v}</span>`:''}</div><div class="mt">${esc(e.st.date||new Date(e.t).toLocaleDateString('ko-KR'))}${e.st.client?' · '+esc(e.st.client):''}</div></div>
+ <div style="text-align:right"><div class="pv tnum" style="font-size:15px;font-weight:800">${won(e._total!=null?e._total:e.total)}</div><span class="schip sc-est" style="margin-top:4px">${stg[1]}</span></div></div>`;}
 function siteRow(s){const st=STAT[s.status]||STAT.lead;return `<div class="rowitem" onclick="openSite('${s.id}')" style="cursor:pointer">
  <div class="savatar"><svg viewBox="0 0 24 24">${IC.site}</svg></div>
  <div class="info"><div class="nm">${esc(s.name)}</div><div class="mt">${esc(s.client||'')} · ${man(s.amount)}원</div></div>
@@ -569,7 +590,9 @@ function monthChart(){
 const STAGES=[['sent','견적 발송'],['nego','협의중'],['contract','계약'],['run','시공중'],['done','완료']];
 const OLDMAP={lead:'sent',visit:'sent',sent:'sent',contract:'contract',nego:'nego',run:'run',done:'done'};
 function pipeCards(){
- const est=estList().map(e=>({id:'est:'+e.k,name:e.k,amount:e.total,stage:pipeStage(e.k),sub:(e.st.date||new Date(e.t).toLocaleDateString('ko-KR')),est:true}));
+ const est=estGroups().map(gp=>({id:'est:'+gp.base,name:gp.base,amount:gp.total,stage:gStage(gp),
+   sub:(gp.latest.st.date||new Date(gp.latest.t).toLocaleDateString('ko-KR')),est:true,
+   vcnt:gp.versions.length, vname:gp.latest.k}));
  const man_=DB.sales.map(s=>({id:s.id,name:s.name,amount:s.amount||0,stage:OLDMAP[s.stage]||'sent',sub:s.client||s.due||'',est:false}));
  return est.concat(man_);
 }
@@ -587,19 +610,22 @@ function viewSales(){
  }).join('')}</div>`;
 }
 function pipeCard(c){const idx=STAGES.findIndex(x=>x[0]===c.stage);
- return `<div class="kc"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px"><div class="t">${esc(c.name)}</div>${c.est?'':`<button onclick="delSale('${c.id}')" style="color:var(--muted);font-size:17px;line-height:1;flex-shrink:0">×</button>`}</div>
+ return `<div class="kc"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px"><div class="t">${esc(c.name)}${(c.vcnt>1)?`<span class="vbadge">v${c.vcnt}</span>`:''}</div>${c.est?'':`<button onclick="delSale('${c.id}')" style="color:var(--muted);font-size:17px;line-height:1;flex-shrink:0">×</button>`}</div>
   <div class="a tnum">${won(c.amount)}원</div>
-  <div class="m"><span>${esc(c.sub)}</span><span>${c.est?'견적 연동':''}</span></div>
+  <div class="m"><span>${esc(c.sub)}</span><span>${c.est?((c.vcnt>1)?'최신본 기준':'견적 연동'):''}</span></div>
   <div class="mv">
    <button ${idx<=0?'disabled style=opacity:.35':''} onclick="pipeMove('${c.id.replace(/'/g,"\\'")}',-1)">←</button>
-   ${c.est?'':`<button onclick="editSale('${c.id}')">수정</button>`}
+   ${c.est?`<button data-est="${esc(c.vname||'')}" onclick="openEst(this.dataset.est)">열기</button>`:`<button onclick="editSale('${c.id}')">수정</button>`}
    <button ${idx>=STAGES.length-1?'disabled style=opacity:.35':''} onclick="pipeMove('${c.id.replace(/'/g,"\\'")}',1)">${idx===1?'계약 →':'→'}</button>
   </div></div>`;}
 function pipeMove(id,d){
  if(id.startsWith('est:')){
-  const k=id.slice(4);const cur=pipeStage(k);const i=STAGES.findIndex(x=>x[0]===cur)+d;
-  if(i<0||i>=STAGES.length)return;DB.pipe[k]=STAGES[i][0];
-  if(STAGES[i][0]==='contract')offerSite(k,estTotal(EST[k]&&EST[k].data));
+  const b=id.slice(4);const gp=estGroups().find(g=>g.base===b);if(!gp)return;
+  const cur=gStage(gp);const i=STAGES.findIndex(x=>x[0]===cur)+d;
+  if(i<0||i>=STAGES.length)return;
+  DB.pipe[b]=STAGES[i][0];
+  gp.versions.forEach(v=>{if(v.k!==b&&DB.pipe[v.k])delete DB.pipe[v.k];});   // 버전별 옛 값 정리
+  if(STAGES[i][0]==='contract')offerSite(b,gp.total);
   save();render();return;
  }
  const s=DB.sales.find(x=>x.id===id);if(!s)return;
@@ -707,7 +733,7 @@ function pickDict(id){const d=DB.dict.find(x=>x.id===id);if(!d)return;
 
 /* ---------- QUOTES ---------- */
 function viewQuotes(){
- const list=estList();
+ const list=estList(), groups=estGroups();
  let draft=null;try{draft=JSON.parse(localStorage.getItem('mdl_draft')||'null');}catch(e){}
  return `<div class="panel" style="margin-bottom:16px;display:flex;align-items:center;gap:16px">
    <div class="savatar" style="width:46px;height:46px"><svg viewBox="0 0 24 24">${IC.quote}</svg></div>
@@ -715,8 +741,22 @@ function viewQuotes(){
    <button class="btn" onclick="location.href='./index.html'">견적서 만들기</button>
   </div>
   ${draft&&draft.title?`<div class="panel" style="margin-bottom:16px"><div class="ph"><div class="t">작성 중인 견적</div><a class="lnk" href="./index.html">이어서 →</a></div><div class="rowitem" style="border:none"><div class="info"><div class="nm">${esc(draft.title)}</div><div class="mt">${esc(draft.client||'')}</div></div></div></div>`:''}
-  <div class="panel"><div class="ph"><div class="t">저장한 견적</div><div class="subttl">${list.length}건 · 합계 ${man(list.reduce((a,e)=>a+e.total,0))}원</div></div>
-   ${list.length?list.map(e=>`<div class="rowitem"><div class="savatar"><svg viewBox="0 0 24 24">${IC.quote}</svg></div><div class="info"><div class="nm">${esc(e.k)}</div><div class="mt">${esc(e.st.date||new Date(e.t).toLocaleDateString('ko-KR'))}${e.st.client?' · '+esc(e.st.client):''}</div></div><div style="text-align:right;margin-right:6px"><div class="pv tnum" style="font-size:15px;font-weight:800">${won(e.total)}</div><span class="schip sc-est" style="margin-top:3px">${(STAGES.find(x=>x[0]===pipeStage(e.k))||STAGES[0])[1]}</span></div><button class="btn gh sm" data-est="${esc(e.k)}" onclick="openEst(this.dataset.est)">열기</button></div>`).join(''):'<div class="empty">저장된 견적이 없어요 — 견적서를 만들어 저장해보세요</div>'}
+  <div class="panel"><div class="ph"><div class="t">저장한 견적</div><div class="subttl">현장 ${groups.length}곳 · 전체 ${list.length}건 · 합계 ${man(groups.reduce((a,g)=>a+g.total,0))}원</div></div>
+   ${groups.length?groups.map(gp=>{
+     const e=gp.latest, open=!!_estOpen[gp.base], multi=gp.versions.length>1;
+     return `<div class="rowitem"><div class="savatar"><svg viewBox="0 0 24 24">${IC.quote}</svg></div>
+      <div class="info"><div class="nm">${esc(gp.base)}${multi?`<span class="vbadge">v${gp.versions.length}</span>`:''}</div>
+       <div class="mt">${esc(e.st.date||new Date(e.t).toLocaleDateString('ko-KR'))}${e.st.client?' · '+esc(e.st.client):''}${multi?` · 최신 ${esc(e.k)}`:''}</div></div>
+      <div style="text-align:right;margin-right:6px"><div class="pv tnum" style="font-size:15px;font-weight:800">${won(gp.total)}</div>
+       <span class="schip sc-est" style="margin-top:3px">${(STAGES.find(x=>x[0]===gStage(gp))||STAGES[0])[1]}</span></div>
+      ${multi?`<button class="btn gh sm" data-b="${esc(gp.base)}" onclick="estToggle(this.dataset.b)" style="margin-right:5px">${open?'접기':'버전'}</button>`:''}
+      <button class="btn gh sm" data-est="${esc(e.k)}" onclick="openEst(this.dataset.est)">열기</button></div>
+      ${(multi&&open)?gp.versions.map(v=>`<div class="rowitem" style="padding-left:56px;background:var(--goldFaint)">
+        <div class="info"><div class="nm" style="font-size:13px">${esc(v.k)}</div>
+         <div class="mt">${esc(v.st.date||'')} · 저장 ${new Date(v.t).toLocaleString('ko-KR')}</div></div>
+        <div class="pv tnum" style="font-size:14px;font-weight:700;margin-right:8px">${won(v.total)}</div>
+        <button class="btn gh sm" data-est="${esc(v.k)}" onclick="openEst(this.dataset.est)">열기</button></div>`).join(''):''}`;
+   }).join(''):'<div class="empty">저장된 견적이 없어요 — 견적서를 만들어 저장해보세요</div>'}
   </div>`;
 }
 
